@@ -12,6 +12,10 @@ impl Vm {
             _ => Err(OpErr::UnaryTypeErr { op: super::err::UnaryOp::Len, ty: Type::of_val(&val) }.into())
         }
     }
+
+    pub fn truty(&mut self,val:Value) -> Result<bool> {
+        todo!()
+    }
 }
 
 

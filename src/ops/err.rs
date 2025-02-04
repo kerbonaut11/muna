@@ -8,6 +8,7 @@ use crate::table::InvalidKey;
 pub enum OpErr {
     TypeErr{op:Op,lhs:Type,rhs:Type},
     UnaryTypeErr{op:UnaryOp,ty:Type},
+    CompMetaFuncReturnedNonBool{got:Type},
     InvalidKey(InvalidKey),
     DivZero,
 }
