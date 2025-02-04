@@ -1,0 +1,11 @@
+[package]
+name = "muna"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+fnv = "*"
+derive_more = { version = "*", features = ["full"] }
+lazy_static = "*"
+multipeek = "*"
+macros = { path="macros" }
