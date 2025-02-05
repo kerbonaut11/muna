@@ -10,12 +10,19 @@ pub enum ByteCode {
     Push(Reg),
     Pop(Reg),
 
-    LoadNil(Reg),
-    LoabBool(Reg,bool),
-    LoadFloat(Reg),
-    LoadInt(Reg), 
-    LoadStr(RegMem),
-    LoadFunc(Reg),
+    LoadRNil(Reg),
+    LoabRBool(Reg,bool),
+    LoadRFloat(Reg),
+    LoadRInt(Reg), 
+    LoadRStr(RegMem),
+    LoadRFunc(Reg),
+
+    LoadMNil(Reg),
+    LoabMBool(Reg,bool),
+    LoadMFloat(Reg),
+    LoadMInt(Reg), 
+    LoadMStr(RegMem),
+    LoadMFunc(Reg),
 
     AddRR(RegReg),
     SubRR(RegReg),
@@ -27,6 +34,7 @@ pub enum ByteCode {
 
     AndRR(RegReg),
     OrRR(RegReg),
+    XorRR(RegReg),
     ShrRR(RegReg),
     ShlRR(RegReg),
 
@@ -49,6 +57,7 @@ pub enum ByteCode {
 
     AndRM(RegMem),
     OrRM(RegMem),
+    XorRM(RegMem),
     ShrRM(RegMem),
     ShlRM(RegMem),
 
@@ -73,6 +82,7 @@ pub enum ByteCode {
 
     AndRC(Reg),
     OrRC(Reg),
+    XorRC(Reg),
     ShrRC{val:u8,dest:Reg},
     ShlRC{val:u8,dest:Reg},  
 
@@ -99,6 +109,7 @@ pub enum ByteCode {
 
     AndMR(MemReg),
     OrMR(MemReg),
+    XorMR(MemReg),
     ShrMR(MemReg),
     ShlMR(MemReg),
 
@@ -162,14 +173,8 @@ pub enum ByteCode {
     GetConstKS{t:Reg,dest:Reg},   
 
     Set(TableSet),
-    SetConstVI{t:Reg,key:Reg},
-    SetConstVF{t:Reg,key:Reg},
     SetConstKI{t:Reg},   
     SetConstKS(TableMem),
-    SetConstVIConstKI(Reg),
-    SetConstVFConstKI(Reg),
-    SetConstVIConstKS(TableMem),
-    SetConstVFConstKS(TableMem),
 
     SetMetaTable(TableReg),
     GetMetaTable(TableReg),

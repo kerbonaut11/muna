@@ -20,10 +20,11 @@ pub fn exec(vm:&mut Vm,instr:ByteCode) -> Result<()> { match instr {
 
     B::AndRR(RegReg{dest,src}) => return vm.reg_reg_op(dest, src, Vm::bitand),
     B::OrRR(RegReg{dest,src})  => return vm.reg_reg_op(dest, src, Vm::bitor),
+    B::XorRR(RegReg{dest,src}) => return vm.reg_reg_op(dest, src, Vm::bitxor),
     B::ShrRR(RegReg{dest,src}) => return vm.reg_reg_op(dest, src, Vm::shr),
     B::ShlRR(RegReg{dest,src}) => return vm.reg_reg_op(dest, src, Vm::shl),
 
-    B::EqRR(RegReg{dest,src})     => vm.regs[dest] = (vm.regs[dest] == vm.regs[src]).into(),
+    B::EqRR(RegReg{dest,src})     => vm.regs[dest] = vm.eq(vm.regs[dest],vm.regs[src])?.into(),
     B::LessRR(RegReg{dest,src})   => vm.regs[dest] = vm.less(vm.regs[dest],vm.regs[src])?.into(),
     B::LessEqRR(RegReg{dest,src}) => vm.regs[dest] = vm.less_eq(vm.regs[dest],vm.regs[src])?.into(),
     B::IsRR(RegReg{dest,src})     => vm.regs[dest] = (vm.regs[dest].is(&vm.regs[src])).into(),
@@ -42,12 +43,13 @@ pub fn exec(vm:&mut Vm,instr:ByteCode) -> Result<()> { match instr {
 
     B::AndRM(RegMem{dest,src}) => return vm.reg_mem_op(dest, src, Vm::bitand),
     B::OrRM(RegMem{dest,src})  => return vm.reg_mem_op(dest, src, Vm::bitor),
+    B::XorRM(RegMem{dest,src}) => return vm.reg_mem_op(dest, src, Vm::bitor),
     B::ShrRM(RegMem{dest,src}) => return vm.reg_mem_op(dest, src, Vm::shr),
     B::ShlRM(RegMem{dest,src}) => return vm.reg_mem_op(dest, src, Vm::shl),
 
-    B::EqRM(RegMem{dest,src})     => vm.regs[dest] = (vm.regs[dest] == vm.stack[src]).into(),
-    B::LessRM(RegMem{dest,src})   => vm.regs[dest] =  vm.less(vm.regs[dest],vm.stack[src])?.into(),
-    B::LessEqRM(RegMem{dest,src}) => vm.regs[dest] =  vm.less_eq(vm.regs[dest],vm.stack[src])?.into(),
+    B::EqRM(RegMem{dest,src})     => vm.regs[dest] = vm.eq(vm.regs[dest],vm.stack[src])?.into(),
+    B::LessRM(RegMem{dest,src})   => vm.regs[dest] = vm.less(vm.regs[dest],vm.stack[src])?.into(),
+    B::LessEqRM(RegMem{dest,src}) => vm.regs[dest] = vm.less_eq(vm.regs[dest],vm.stack[src])?.into(),
     B::IsRM(RegMem{dest,src})     => vm.regs[dest] = (vm.regs[dest].is(&vm.stack[src])).into(),
 
     B::AddRCI(dest)  => return  vm.reg_int_op(dest, Vm::addi),
@@ -58,7 +60,7 @@ pub fn exec(vm:&mut Vm,instr:ByteCode) -> Result<()> { match instr {
     B::ModRCI(dest)  => return  vm.reg_int_op(dest, Vm::remi),
     B::PowRCI(dest)  => return  vm.reg_int_op(dest, Vm::powi),
 
-    B::EqRCI(dest)     => vm.regs[dest] = {let x = vm.program.load_int(); vm.eqi(vm.regs[dest],x).into()},
+    B::EqRCI(dest)     => vm.regs[dest] = {let x = vm.program.load_int(); vm.eqi(vm.regs[dest],x)?.into()},
     B::LessRCI(dest)   => vm.regs[dest] = {let x = vm.program.load_int(); vm.lessi(vm.regs[dest],x)?.into()},
     B::LessEqRCI(dest) => vm.regs[dest] = {let x = vm.program.load_int(); vm.less_eqi(vm.regs[dest],x)?.into()},
 
@@ -74,7 +76,7 @@ pub fn exec(vm:&mut Vm,instr:ByteCode) -> Result<()> { match instr {
     B::ModRCF(dest)=> return  vm.reg_float_op(dest, Vm::remf),
     B::PowRCF(dest)=> return  vm.reg_float_op(dest, Vm::powf),
 
-    B::EqRCF(dest)=> vm.regs[dest]     = {let x = vm.program.load_float(); vm.eqf(vm.regs[dest],x).into()},
+    B::EqRCF(dest)=> vm.regs[dest]     = {let x = vm.program.load_float(); vm.eqf(vm.regs[dest],x)?.into()},
     B::LessRCF(dest) => vm.regs[dest]  = {let x = vm.program.load_float(); vm.lessf(vm.regs[dest],x)?.into()},
     B::LessEqRCF(dest) =>vm.regs[dest] = {let x = vm.program.load_float(); vm.less_eqf(vm.regs[dest],x)?.into()},
 
@@ -92,9 +94,9 @@ pub fn exec(vm:&mut Vm,instr:ByteCode) -> Result<()> { match instr {
     B::ShrMR(MemReg{dest,src}) => return vm.mem_reg_op(dest, src, Vm::shr),
     B::ShlMR(MemReg{dest,src}) => return vm.mem_reg_op(dest, src, Vm::shl),
 
-    B::EqMR(MemReg{dest,src})     => vm.stack[dest] = (vm.stack[dest] == vm.regs[src]).into(),
-    B::LessMR(MemReg{dest,src})   => vm.stack[dest] =  vm.less(vm.stack[dest],vm.regs[src])?.into(),
-    B::LessEqMR(MemReg{dest,src}) => vm.stack[dest] =  vm.less_eq(vm.stack[dest],vm.regs[src])?.into(),
+    B::EqMR(MemReg{dest,src})     => vm.stack[dest] = vm.eq(vm.stack[dest],vm.regs[src])?.into(),
+    B::LessMR(MemReg{dest,src})   => vm.stack[dest] = vm.less(vm.stack[dest],vm.regs[src])?.into(),
+    B::LessEqMR(MemReg{dest,src}) => vm.stack[dest] = vm.less_eq(vm.stack[dest],vm.regs[src])?.into(),
     B::IsMR(MemReg{dest,src})     => vm.stack[dest] = (vm.stack[dest].is(&vm.regs[src])).into(),
 
 
@@ -110,7 +112,7 @@ pub fn exec(vm:&mut Vm,instr:ByteCode) -> Result<()> { match instr {
     B::ModMCI(dest)  => return  vm.mem_int_op(dest, Vm::remi),
     B::PowMCI(dest)  => return  vm.mem_int_op(dest, Vm::powi),
 
-    B::EqMCI(dest)     => vm.stack[dest] = {let x = vm.program.load_int(); vm.eqi(vm.stack[dest],x).into()},
+    B::EqMCI(dest)     => vm.stack[dest] = {let x = vm.program.load_int(); vm.eqi(vm.stack[dest],x)?.into()},
     B::LessMCI(dest)   => vm.stack[dest] = {let x = vm.program.load_int(); vm.lessi(vm.stack[dest],x)?.into()},
     B::LessEqMCI(dest) => vm.stack[dest] = {let x = vm.program.load_int(); vm.less_eqi(vm.stack[dest],x)?.into()},
 
@@ -126,7 +128,7 @@ pub fn exec(vm:&mut Vm,instr:ByteCode) -> Result<()> { match instr {
     B::ModMCF(dest) => return  vm.mem_float_op(dest, Vm::remf),
     B::PowMCF(dest) => return  vm.mem_float_op(dest, Vm::powf),
 
-    B::EqMCF(dest)     => vm.stack[dest] = {let x = vm.program.load_float(); vm.eqf(vm.stack[dest],x).into()},
+    B::EqMCF(dest)     => vm.stack[dest] = {let x = vm.program.load_float(); vm.eqf(vm.stack[dest],x)?.into()},
     B::LessMCF(dest)   => vm.stack[dest] = {let x = vm.program.load_float(); vm.lessf(vm.stack[dest],x)?.into()},
     B::LessEqMCF(dest) => vm.stack[dest] = {let x = vm.program.load_float(); vm.less_eqf(vm.stack[dest],x)?.into()},
 

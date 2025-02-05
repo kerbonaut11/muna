@@ -117,7 +117,7 @@ impl Table {
         } else {
             None
         }
-    }            
+    }
 }
 
 impl Marked for Table {

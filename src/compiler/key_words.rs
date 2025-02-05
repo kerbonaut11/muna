@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use lazy_static::lazy_static;
-use super::parse::Token;
+use super::tokenizer::Token;
 
 lazy_static! {
     pub static ref KEY_WORDS: HashMap<Box<str>,Token> = {

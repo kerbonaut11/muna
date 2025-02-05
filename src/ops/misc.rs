@@ -1,3 +1,4 @@
+use crate::function::Function;
 use crate::upval::UpVal;
 use crate::vm::Vm;
 use crate::Result;
@@ -13,8 +14,21 @@ impl Vm {
         }
     }
 
-    pub fn truty(&mut self,val:Value) -> Result<bool> {
-        todo!()
+    pub fn truthy(&mut self,val:Value) -> Result<bool> {
+        match val {
+            Value::Nil => Ok(false),
+            Value::Bool(x) => Ok(x),
+            Value::Table(mut val) => if let Some(x) = val.meta_call_unary("__tty", self) {return try_to_bool(x?);} else {Ok(true)},
+            Value::UserData(mut val) => if let Some(x) = val.meta_call_unary("__tty", self) {return try_to_bool(x?);} else {Ok(true)},
+            _ => Ok(true)
+        }
+    }
+}
+
+fn try_to_bool(val:Value) -> Result<bool> {
+    match val {
+        Value::Bool(x) => Ok(x),
+        _ => Err(OpErr::TruthyMetaFuncReturnedNonBool { got: Type::of_val(&val) }.into())
     }
 }
 
@@ -36,10 +50,12 @@ impl Value {
         } else { unreachable!() }
     }
 
-    pub fn addres(&self) -> Option<usize> {
+    fn addres(&self) -> Option<usize> {
         match self {
             Value::String(gc) => Some(gc.addres()),
             Value::Table(gc) => Some(gc.addres()),
+            Value::Function(gc) => Some(gc.addres()),
+            Value::UserData(gc) => Some(gc.addres()),
             _ => None
         }
     }
