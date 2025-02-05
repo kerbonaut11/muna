@@ -9,6 +9,7 @@ pub enum OpErr {
     CompMetaFuncReturnedNonBool{got:Type},
     TruthyMetaFuncReturnedNonBool{got:Type},
     InvalidKey(InvalidKey),
+    IndexedInvalidType(Type),
     DivZero,
 }
 
@@ -30,7 +31,7 @@ pub enum Op {
 
     Eq,
     Less,
-    LessEq
+    LessEq,
 }
 
 #[derive(Debug)]

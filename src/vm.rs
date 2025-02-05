@@ -87,6 +87,20 @@ impl Regs {
     fn new() -> Self {
         Self([Value::Nil;Self::COUNT])
     }
+
+    pub fn arg_regs(&self) -> [Value;Self::ARG_RESERVED] {
+        let mut out = [Value::Nil;Self::ARG_RESERVED];
+        for i in 0..Self::ARG_RESERVED {
+            out[i] = self[i];
+        }
+        out
+    }
+
+    pub fn write_arg_regs(&mut self,args:[Value;Self::ARG_RESERVED]) {
+        for i in 0..Self::ARG_RESERVED {
+            self[i] = args[i]
+        }
+    }
 }
 
 impl Index<Reg> for Regs {

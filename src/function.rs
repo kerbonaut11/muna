@@ -15,8 +15,8 @@ pub struct Function {
 #[derive(Debug)]
 pub enum CallErr {
     WrongType(Type),
-    MetaWrongArgCount{was_unary:bool,got:u8},
-    MetaWrongArgRet{got:u8},
+    MetaWrongArgCount{expected:u8,got:u8},
+    MetaWrongRetCount{expected:u8,got:u8},
     UdTypeMismatch{expected:Type,got:Type},
 }
 
@@ -133,10 +133,10 @@ impl Vm {
         }
     }
 
-    pub fn call_meta(&mut self,f:&Function) -> Result<()> {
+    pub fn call_meta_unary(&mut self,f:&Function) -> Result<()> {
 
-        if f.arg_count() != 2 {return Err(CallErr::MetaWrongArgCount{ was_unary: false, got: f.arg_count() as u8 }.into());}
-        if f.ret_count() != 1 {return Err(CallErr::MetaWrongArgRet{ got: f.ret_count }.into());}
+        if f.arg_count() != 1 {return Err(CallErr::MetaWrongArgCount{ expected:1, got: f.arg_count() as u8 }.into());}
+        if f.ret_count() != 1 {return Err(CallErr::MetaWrongRetCount{ expected:1, got: f.ret_count }.into());}
 
         self.push_call_stack(f, 1);
 
@@ -149,12 +149,28 @@ impl Vm {
         }
     }
 
-    pub fn call_meta_unary(&mut self,f:&Function) -> Result<()> {
+    pub fn call_meta(&mut self,f:&Function) -> Result<()> {
 
-        if f.arg_count() != 1 {return Err(CallErr::MetaWrongArgCount{ was_unary: true, got: f.arg_count() as u8 }.into());}
-        if f.ret_count() != 1 {return Err(CallErr::MetaWrongArgRet{ got: f.ret_count }.into());}
+        if f.arg_count() != 2 {return Err(CallErr::MetaWrongArgCount{ expected:2, got: f.arg_count() as u8 }.into());}
+        if f.ret_count() != 1 {return Err(CallErr::MetaWrongRetCount{ expected:1, got: f.ret_count }.into());}
 
         self.push_call_stack(f, 1);
+
+        if !f.is_call_back {
+            self.program.ptr = f.ptr as *const ByteCode;
+            Ok(())
+        } else {
+            let f:fn(&mut Vm) -> Result<()> = unsafe{std::mem::transmute(f.ptr)};
+            f(self)
+        }
+    }
+
+    pub fn call_meta_new_idx(&mut self,f:&Function) -> Result<()> {
+
+        if f.arg_count() != 3 {return Err(CallErr::MetaWrongArgCount{ expected:3, got: f.arg_count() as u8 }.into());}
+        if f.ret_count() != 0 {return Err(CallErr::MetaWrongRetCount{ expected:0, got: f.ret_count }.into());}
+
+        self.push_call_stack(f, 0);
 
         if !f.is_call_back {
             self.program.ptr = f.ptr as *const ByteCode;

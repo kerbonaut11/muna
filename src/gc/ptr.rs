@@ -10,6 +10,10 @@ impl<T:Marked> Gc<T> {
     pub fn new(ptr:*mut T) -> Self {
         Self { ptr }
     }
+
+    pub unsafe fn from_ref(_ref:&T) -> Self {
+        Self { ptr:std::mem::transmute(_ref) }
+    }
 }
 
 impl<T> Gc<T>  {

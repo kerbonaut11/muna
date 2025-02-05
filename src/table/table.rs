@@ -32,16 +32,16 @@ impl Table {
         TableAlloc::alloc(self)
     }
 
-    pub fn set(&mut self,key:Value,val:Value) -> Result<()> {
+    pub fn set(&mut self,key:Value,val:Value) -> Result<Option<Value>> {
         if let Value::Int(i) = key {
             if i > 0 && (i  as usize) < self.array.len() {
+                let prev = self.array[i as usize];
                 self.array[i as usize] = val;
-                return Ok(());
+                return Ok(Some(prev));
             }
         }
         let key = Key::new_clone(key)?;
-        self.map.insert(key,val);
-        Ok(())
+        Ok(self.map.insert(key,val))
     }
 
     pub fn get(&self,key:Value) -> Result<Value> {
@@ -83,37 +83,67 @@ impl Table {
         self.meta_table_bits |= bits & !1;
     }
 
-    pub fn meta_call(&mut self,rhs:Value,name:&str,vm:&mut Vm) -> Option<Result<Value>> {
+    pub fn meta_call_unary(&mut self,name:&str,vm:&mut Vm) -> Option<Result<Value>> {
         let meta = self.get_meta_table()?;
         let val = meta.get_str(name);
         if let Value::Function(func) = val {
-            let r0 = vm.regs[0];
-            let r1 = vm.regs[1]; 
-            match vm.call_meta(&func) {
+
+            let args = vm.regs.arg_regs();
+            vm.regs[0] = unsafe{Gc::<Self>::from_ref(self)}.into();
+
+            match vm.call_meta_unary(&func) {
                 Ok(_) => {},
                 Err(e) => return Some(Err(e))
             }
+
             let val = vm.regs[0];
-            vm.regs[0] = r0;
-            vm.regs[1] = r1;
+            vm.regs.write_arg_regs(args);
             Some(Ok(val))
         } else {
             None
         }
     }
 
-    pub fn meta_call_unary(&mut self,name:&str,vm:&mut Vm) -> Option<Result<Value>> {
+    pub fn meta_call(&mut self,rhs:Value,name:&str,vm:&mut Vm) -> Option<Result<Value>> {
         let meta = self.get_meta_table()?;
         let val = meta.get_str(name);
         if let Value::Function(func) = val {
-            let r0 = vm.regs[0];
-            match vm.call_meta_unary(&func) {
+
+            let args = vm.regs.arg_regs();
+            vm.regs[0] = unsafe{Gc::<Self>::from_ref(self)}.into();
+            vm.regs[1] = rhs;
+
+            match vm.call_meta(&func) {
                 Ok(_) => {},
                 Err(e) => return Some(Err(e))
             }
+
             let val = vm.regs[0];
-            vm.regs[0] = r0;
+            vm.regs.write_arg_regs(args);
             Some(Ok(val))
+        } else {
+            None
+        }
+    }
+
+    pub fn meta_call_newidx(&mut self,k:Value,v:Value,vm:&mut Vm) -> Option<Result<()>> {
+        let meta = self.get_meta_table()?;
+        let val = meta.get_str("__newidx");
+        if let Value::Function(func) = val {
+
+            let args = vm.regs.arg_regs();
+            vm.regs[0] = unsafe{Gc::<Self>::from_ref(self)}.into();
+            vm.regs[1] = k;
+            vm.regs[2] = v;
+
+            match vm.call_meta_new_idx(&func) {
+                Ok(_) => {},
+                Err(e) => return Some(Err(e))
+            }
+
+            let val = vm.regs[0];
+            vm.regs.write_arg_regs(args);
+            Some(Ok(()))
         } else {
             None
         }

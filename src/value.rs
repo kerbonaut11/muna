@@ -25,6 +25,12 @@ pub enum Value {
     UserData(Gc<UserData>),
 }
 
+impl Value {
+    pub fn is_nil(&self) -> bool {
+        if let Value::Nil = *self {true} else {false}
+    }
+}
+
 impl Hash for Value {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         state.write_u8(unsafe{*mem::transmute::<&Self,*const u8>(self)});

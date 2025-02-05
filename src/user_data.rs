@@ -55,38 +55,51 @@ impl PartialEq for UserData {
 impl Eq for UserData {}
 
 impl UserData {
-    pub fn meta_call(&mut self,rhs:Value,name:&str,vm:&mut Vm) -> Option<Result<Value>> {
-        let val = self.get_meta_table()?.get_str(name);
+    pub fn meta_call_unary(&mut self,name:&str,vm:&mut Vm) -> Option<Result<Value>> {
+        let meta = self.get_meta_table()?;
+        let val = meta.get_str(name);
         if let Value::Function(func) = val {
-            let r0 = vm.regs[0];
-            let r1 = vm.regs[1]; 
-            match vm.call(2, 1, &func) {
+
+            let args = vm.regs.arg_regs();
+            vm.regs[0] = unsafe{Gc::<Self>::from_ref(self)}.into();
+
+            match vm.call_meta_unary(&func) {
                 Ok(_) => {},
                 Err(e) => return Some(Err(e))
             }
+
             let val = vm.regs[0];
-            vm.regs[0] = r0;
-            vm.regs[1] = r1;
+            vm.regs.write_arg_regs(args);
             Some(Ok(val))
         } else {
             None
         }
     }
 
-    pub fn meta_call_unary(&mut self,name:&str,vm:&mut Vm) -> Option<Result<Value>> {
-        let val = self.get_meta_table()?.get_str(name);
+    pub fn meta_call(&mut self,rhs:Value,name:&str,vm:&mut Vm) -> Option<Result<Value>> {
+        let meta = self.get_meta_table()?;
+        let val = meta.get_str(name);
         if let Value::Function(func) = val {
-            let r0 = vm.regs[0];
-            match vm.call(1, 1, &func) {
+
+            let args = vm.regs.arg_regs();
+            vm.regs[0] = unsafe{Gc::<Self>::from_ref(self)}.into();
+            vm.regs[1] = rhs;
+
+            match vm.call_meta(&func) {
                 Ok(_) => {},
                 Err(e) => return Some(Err(e))
             }
+
             let val = vm.regs[0];
-            vm.regs[0] = r0;
+            vm.regs.write_arg_regs(args);
             Some(Ok(val))
         } else {
             None
         }
-    }  
+    }
+
+    pub fn set(&mut self,k:Value,v:Value,vm:&mut Vm) -> Result<()> {
+        todo!()
+    }
 }
 
