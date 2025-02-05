@@ -209,16 +209,15 @@ fn test() {
 
     vm.call(5, 1, &f).unwrap();
     assert_eq!(vm.program.ptr as *const (),f.ptr);
-    assert_eq!(vm.regs[4],Value::Int(14));
-    assert_eq!(vm.regs[5],Value::Nil);
-    assert_eq!(*vm.stack.top(),Value::Nil);
-    assert_eq!(vm.stack[0],Value::Nil);
-    assert_eq!(vm.stack.slice(),[Value::Nil]);
-
+    assert!(vm.eq(vm.regs[4],Value::Int(14)).unwrap());
+    assert!(vm.eq(vm.regs[5],Value::Nil).unwrap());
+    assert!(vm.eq(*vm.stack.top(),Value::Nil).unwrap());
+    assert!(vm.eq(vm.stack[0],Value::Nil).unwrap());
+    
     vm.stack.push(Value::Bool(false));
 
     vm.ret();
-    assert_eq!(vm.stack.slice(),&[1.0.into(),2.0.into()]);
+    assert_eq!(vm.eq(vm.stack.slice(),&[1.0.into(),2.0.into()]).unwrap());
 
     fn call_back(vm:&mut Vm) -> Result<()> {
         vm.regs[12] = Value::Int(32);
@@ -236,5 +235,5 @@ fn test() {
     };
 
     vm.call(0, 0, &f).unwrap();
-    assert_eq!(vm.regs[12],Value::Int(32));
+    assert_eq!(vm.eq(vm.regs[12],Value::Int(32)).unwrap());
 }

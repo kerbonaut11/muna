@@ -7,5 +7,5 @@ edition = "2021"
 fnv = "*"
 derive_more = { version = "*", features = ["full"] }
 lazy_static = "*"
-multipeek = "*"
+# multipeek = "*"
 macros = { path="macros" }

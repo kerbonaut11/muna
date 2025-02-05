@@ -27,7 +27,11 @@ pub enum Op {
     And,
     Or,
     Shr,
-    Shl
+    Shl,
+
+    Eq,
+    Less,
+    LessEq
 }
 
 #[derive(Debug)]

@@ -4,7 +4,7 @@ use crate::value::{Type, Value};
 use crate::vm::Vm;
 use crate::Result;
 
-use super::OpErr;
+use super::{Op, OpErr};
 
 impl Vm {
     pub fn eq(&mut self,lhs:Value,rhs:Value) -> Result<bool> {
@@ -58,7 +58,7 @@ impl Vm {
         if lhs.map.len() != lhs.map.len() {return Ok(false);}
 
         for i in 0..lhs.array.len() {
-            if lhs.array[i] != rhs.array[i] {return Ok(false);}
+            if !self.eq(lhs.array[i],rhs.array[i])? {return Ok(false);}
         }
 
         for (lhs,rhs) in lhs.map.iter().zip(rhs.map.iter()) {
@@ -70,35 +70,117 @@ impl Vm {
     }
 
     pub fn less(&mut self,lhs:Value,rhs:Value) -> Result<bool> {
-        todo!()
+        match lhs {
+            Value::Int(lhs) => match rhs {
+                Value::Int(rhs) => return Ok(lhs<rhs),
+                Value::Float(rhs) => return Ok((lhs as f64 )<rhs),
+                _ => {}
+            }
+
+            Value::Float(lhs) => match rhs {
+                Value::Int(rhs) => return Ok(lhs<rhs as f64),
+                Value::Float(rhs) => return Ok(lhs<rhs),
+                _ => {}
+            }
+
+            Value::Table(mut lhs) => if let Some(x) = lhs.meta_call(rhs.into(), "__less", self) {return try_to_bool(x?);},
+            Value::UserData(mut lhs) => if let Some(x) = lhs.meta_call(rhs.into(), "__less", self) {return try_to_bool(x?);},
+            _ => {}
+        }
+
+        Err(OpErr::TypeErr { op: Op::Less, lhs: Type::of_val(&lhs), rhs: Type::of_val(&rhs) }.into())
     }
 
     pub fn less_eq(&mut self,lhs:Value,rhs:Value) -> Result<bool> {
-        todo!()
+        match lhs {
+            Value::Int(lhs) => match rhs {
+                Value::Int(rhs) => return Ok(lhs<=rhs),
+                Value::Float(rhs) => return Ok((lhs as f64 )<=rhs),
+                _ => {}
+            }
+
+            Value::Float(lhs) => match rhs {
+                Value::Int(rhs) => return Ok(lhs<=rhs as f64),
+                Value::Float(rhs) => return Ok(lhs<=rhs),
+                _ => {}
+            }
+
+            Value::Table(mut lhs) => if let Some(x) = lhs.meta_call(rhs.into(), "__leq", self) {return try_to_bool(x?);},
+            Value::UserData(mut lhs) => if let Some(x) = lhs.meta_call(rhs.into(), "__leq", self) {return try_to_bool(x?);},
+            _ => {}
+        }
+
+        Err(OpErr::TypeErr { op: Op::LessEq, lhs: Type::of_val(&lhs), rhs: Type::of_val(&rhs) }.into())
     }
 
     pub fn eqi(&mut self,lhs:Value,rhs:i64) -> Result<bool> {
-        todo!()
+        match lhs {
+            Value::Int(lhs) => Ok(lhs==rhs),
+            Value::Float(lhs) => Ok(lhs==rhs as f64),
+
+            Value::Table(mut lhs) => if let Some(x) = lhs.meta_call(rhs.into(), "__eq", self) {try_to_bool(x?)} else {Ok(false)},
+            Value::UserData(mut lhs) => if let Some(x) = lhs.meta_call(rhs.into(), "__eq", self) {try_to_bool(x?)} else {Ok(false)},
+            _ => Ok(false)
+        }
     }
 
     pub fn lessi(&mut self,lhs:Value,rhs:i64) -> Result<bool> {
-        todo!()
+        match lhs {
+            Value::Int(lhs) => return Ok(lhs<rhs),
+            Value::Float(lhs) => return Ok(lhs<rhs as f64),
+
+            Value::Table(mut lhs) => if let Some(x) = lhs.meta_call(rhs.into(), "__less", self) {return try_to_bool(x?);},
+            Value::UserData(mut lhs) => if let Some(x) = lhs.meta_call(rhs.into(), "__less", self) {return try_to_bool(x?);},
+            _ => {}
+        }
+        Err(OpErr::TypeErr { op: Op::Less, lhs: Type::of_val(&lhs), rhs: Type::Int }.into())
     }
 
     pub fn less_eqi(&mut self,lhs:Value,rhs:i64) -> Result<bool> {
-        todo!()
+        match lhs {
+            Value::Int(lhs) => return Ok(lhs<=rhs),
+            Value::Float(lhs) => return Ok(lhs<=rhs as f64),
+
+            Value::Table(mut lhs) => if let Some(x) = lhs.meta_call(rhs.into(), "__leq", self) {return try_to_bool(x?);},
+            Value::UserData(mut lhs) => if let Some(x) = lhs.meta_call(rhs.into(), "__leq", self) {return try_to_bool(x?);},
+            _ => {}
+        }
+        Err(OpErr::TypeErr { op: Op::LessEq, lhs: Type::of_val(&lhs), rhs: Type::Int }.into())
     }
 
     pub fn eqf(&mut self,lhs:Value,rhs:f64) -> Result<bool> {
-        todo!()
+        match lhs {
+            Value::Int(lhs) => Ok((lhs as f64)==rhs),
+            Value::Float(lhs) => Ok(lhs==rhs),
+
+            Value::Table(mut lhs) => if let Some(x) = lhs.meta_call(rhs.into(), "__eq", self) {try_to_bool(x?)} else {Ok(false)},
+            Value::UserData(mut lhs) => if let Some(x) = lhs.meta_call(rhs.into(), "__eq", self) {try_to_bool(x?)} else {Ok(false)},
+            _ => Ok(false)
+        }
     }
 
     pub fn lessf(&mut self,lhs:Value,rhs:f64)-> Result<bool> {
-        todo!()
+        match lhs {
+            Value::Int(lhs) => return Ok((lhs as f64)<rhs),
+            Value::Float(lhs) => return Ok(lhs<rhs),
+
+            Value::Table(mut lhs) => if let Some(x) = lhs.meta_call(rhs.into(), "__less", self) {return try_to_bool(x?);},
+            Value::UserData(mut lhs) => if let Some(x) = lhs.meta_call(rhs.into(), "__less", self) {return try_to_bool(x?);},
+            _ => {}
+        }
+        Err(OpErr::TypeErr { op: Op::Less, lhs: Type::of_val(&lhs), rhs: Type::Float }.into())
     }
 
     pub fn less_eqf(&mut self,lhs:Value,rhs:f64) -> Result<bool> {
-        todo!()
+        match lhs {
+            Value::Int(lhs) => return Ok((lhs as f64)<=rhs),
+            Value::Float(lhs) => return Ok(lhs<=rhs),
+
+            Value::Table(mut lhs) => if let Some(x) = lhs.meta_call(rhs.into(), "__leq", self) {return try_to_bool(x?);},
+            Value::UserData(mut lhs) => if let Some(x) = lhs.meta_call(rhs.into(), "__leq", self) {return try_to_bool(x?);},
+            _ => {}
+        }
+        Err(OpErr::TypeErr { op: Op::LessEq, lhs: Type::of_val(&lhs), rhs: Type::Float }.into())
     }
 }
 
