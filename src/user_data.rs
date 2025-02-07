@@ -1,9 +1,20 @@
 use std::{any::Any, fmt::Debug, mem};
 
-use crate::{gc::{Gc, MarkDown, Marked}, table::Table, value::Value, vm::Vm, Result};
+use crate::{gc::{Gc, MarkDown, Marked}, ops::OpErr, string::LuaString, table::Table, value::{Type, Value}, vm::Vm, Result};
+
+pub trait IUserData: Any {
+    fn get (&mut self, key:Value,        vm: &mut Vm) -> Result<Value> {Err(OpErr::InvalidUdIndex(Type::of_val(&key)).into())}
+    fn gets(&mut self, key:Gc<LuaString>,vm: &mut Vm) -> Result<Value> {self.get(key.into(), vm)}
+    fn geti(&mut self, key:i64,          vm: &mut Vm) -> Result<Value> {self.get(key.into(), vm)}
+
+    fn set (&mut self, key:Value,        val:Value,vm: &mut Vm) -> Result<()> {Err(OpErr::InvalidUdIndex(Type::of_val(&key)).into())}
+    fn sets(&mut self, key:Gc<LuaString>,val:Value,vm: &mut Vm) -> Result<()> {self.set(key.into(), val,vm)}
+    fn seti(&mut self, key:i64,          val:Value,vm: &mut Vm) -> Result<()> {self.set(key.into(), val,vm)}
+}
+
 
 pub struct UserData {
-    val:*mut dyn Any,
+    pub val:*mut dyn IUserData,
     meta_table_bits:u64,
 }
 
@@ -93,6 +104,29 @@ impl UserData {
             let val = vm.regs[0];
             vm.regs.write_arg_regs(args);
             Some(Ok(val))
+        } else {
+            None
+        }
+    }
+
+    pub fn meta_call_set(&mut self,k:Value,v:Value,vm:&mut Vm) -> Option<Result<()>> {
+        let meta = self.get_meta_table()?;
+        let val = meta.get_str("__set");
+        if let Value::Function(func) = val {
+
+            let args = vm.regs.arg_regs();
+            vm.regs[0] = unsafe{Gc::<Self>::from_ref(self)}.into();
+            vm.regs[1] = k;
+            vm.regs[2] = v;
+
+            match vm.call_meta_new_idx(&func) {
+                Ok(_) => {},
+                Err(e) => return Some(Err(e))
+            }
+
+            let val = vm.regs[0];
+            vm.regs.write_arg_regs(args);
+            Some(Ok(()))
         } else {
             None
         }

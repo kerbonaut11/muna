@@ -10,6 +10,7 @@ pub enum OpErr {
     TruthyMetaFuncReturnedNonBool{got:Type},
     InvalidKey(InvalidKey),
     IndexedInvalidType(Type),
+    InvalidUdIndex(Type),
     DivZero,
 }
 

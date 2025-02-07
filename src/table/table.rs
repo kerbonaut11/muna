@@ -32,18 +32,6 @@ impl Table {
         TableAlloc::alloc(self)
     }
 
-    pub fn set(&mut self,key:Value,val:Value) -> Result<Option<Value>> {
-        if let Value::Int(i) = key {
-            if i > 0 && (i  as usize) < self.array.len() {
-                let prev = self.array[i as usize];
-                self.array[i as usize] = val;
-                return Ok(Some(prev));
-            }
-        }
-        let key = Key::new_clone(key)?;
-        Ok(self.map.insert(key,val))
-    }
-
     pub fn get(&self,key:Value) -> Result<Value> {
         if let Value::Int(i) = key {
             if i > 0 && (i  as usize) < self.array.len() {
@@ -56,6 +44,43 @@ impl Table {
 
     pub fn get_str(&self,str:&str) -> Value {
         let key = Key::new_from_str(str);
+        self.map.get(&key).unwrap_or(&Value::Nil).clone()
+    }
+
+
+    pub fn set(&mut self,key:Value,val:Value) -> Result<Option<Value>> {
+        if let Value::Int(i) = key {
+            if i > 0 && (i  as usize) < self.array.len() {
+                let prev = self.array[i as usize];
+                self.array[i as usize] = val;
+                return Ok(Some(prev));
+            }
+        }
+        let key = Key::new_clone(key)?;
+        Ok(self.map.insert(key,val))
+    }
+
+    pub fn set_str(&mut self,str:&str,val:Value) -> Result<Option<Value>> {
+        let key = Key::clone_from_str(str);
+        Ok(self.map.insert(key,val))
+    }
+
+    pub fn seti(&mut self,i:i64,val:Value) -> Result<Option<Value>> {
+        if i > 0 && (i  as usize) < self.array.len() {
+            let prev = self.array[i as usize];
+            self.array[i as usize] = val;
+            return Ok(Some(prev));
+        }
+        let key = Key::Int(i);
+        Ok(self.map.insert(key,val))
+    }
+
+
+    pub fn geti(&self,i:i64) -> Value {
+        if i > 0 && (i  as usize) < self.array.len() {
+            return self.array[i as usize].clone();
+        }
+        let key = Key::Int(i);
         self.map.get(&key).unwrap_or(&Value::Nil).clone()
     }
 

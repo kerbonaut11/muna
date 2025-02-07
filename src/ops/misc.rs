@@ -1,4 +1,6 @@
 use crate::function::Function;
+use crate::gc::Gc;
+use crate::string::LuaString;
 use crate::upval::UpVal;
 use crate::vm::Vm;
 use crate::Result;
@@ -45,16 +47,92 @@ impl Vm {
 
             Value::UserData(mut ud) => {
 
+                let val = unsafe{match k {
+                    Value::String(k) => (*ud.val).gets(k, self)?,
+                    Value::Int(k) => (*ud.val).geti(k, self)?,
+                    _ => (*ud.val).get(k, self)?,
+                }};
+                if !val.is_nil() {return Ok(val);}
+
                 let meta = match ud.get_meta_table() {
                     Some(meta) => meta,
                     None => return Ok(Value::Nil)
                 };
-                let val = meta.get(k)?;
+                meta.get(k)
+            }
+
+            _ => Err(OpErr::IndexedInvalidType(Type::of_val(&t)).into())
+        }
+    }
+
+    pub fn gets(&mut self,t:Value,k:Gc<LuaString>) -> Result<Value> {
+        match t {
+            Value::Table(mut t) => {
+                let val = t.get_str(k.to_str());
                 if !val.is_nil() {return Ok(val);}
 
-                if let Some(result) = ud.meta_call(k,"__idx", self) {result} else {
-                    Err(OpErr::IndexedInvalidType(Type::of_val(&t)).into())
+                let meta = match t.get_meta_table() {
+                    Some(meta) => meta,
+                    None => return Ok(Value::Nil)
+                };
+                let val = meta.get_str(k.to_str());
+                if !val.is_nil() {return Ok(val);}
+
+                match t.meta_call(k.into(),"__idx", self) {
+                    Some(result) => result,
+                    None => Ok(Value::Nil)
                 }
+            }
+
+            Value::UserData(mut ud) => {
+
+                let val = unsafe{
+                    (*ud.val).gets(k, self)?
+                };
+                if !val.is_nil() {return Ok(val);}
+
+                let meta = match ud.get_meta_table() {
+                    Some(meta) => meta,
+                    None => return Ok(Value::Nil)
+                };
+                Ok(meta.get_str(k.to_str()))
+            }
+
+            _ => Err(OpErr::IndexedInvalidType(Type::of_val(&t)).into())
+        }
+    }
+
+    pub fn geti(&mut self,t:Value,k:i64) -> Result<Value> {
+        match t {
+            Value::Table(mut t) => {
+                let val = t.geti(k);
+                if !val.is_nil() {return Ok(val);}
+
+                let meta = match t.get_meta_table() {
+                    Some(meta) => meta,
+                    None => return Ok(Value::Nil)
+                };
+                let val = meta.geti(k);
+                if !val.is_nil() {return Ok(val);}
+
+                match t.meta_call(k.into(),"__idx", self) {
+                    Some(result) => result,
+                    None => Ok(Value::Nil)
+                }
+            }
+
+            Value::UserData(mut ud) => {
+
+                let val = unsafe{
+                    (*ud.val).geti(k, self)?
+                };
+                if !val.is_nil() {return Ok(val);}
+
+                let meta = match ud.get_meta_table() {
+                    Some(meta) => meta,
+                    None => return Ok(Value::Nil)
+                };
+                Ok(meta.geti(k))
             }
 
             _ => Err(OpErr::IndexedInvalidType(Type::of_val(&t)).into())
@@ -71,7 +149,49 @@ impl Vm {
                 Ok(())
             }
 
-            Value::UserData(mut ud) => todo!(),
+            Value::UserData(mut ud) => {
+                unsafe{match k {
+                    Value::String(k) => (*ud.val).sets(k, v, self),
+                    Value::Int(k) => (*ud.val).seti(k, v,self),
+                    _ => (*ud.val).set(k, v, self),
+                }}
+            }
+
+            _ => Err(OpErr::IndexedInvalidType(Type::of_val(&t)).into())
+        }
+    }
+
+    pub fn sets(&mut self,t:Value,k:Gc<LuaString>,v:Value) -> Result<()> {
+        match t {
+            Value::Table(mut t) => {
+                let prev = t.set_str(k.to_str(),v)?;
+                if let None = prev {
+                    if let Some(result) =  t.meta_call_newidx(k.into(),v, self) {result?};
+                }
+                Ok(())
+            }
+
+            Value::UserData(mut ud) => {
+                unsafe{(*ud.val).sets(k, v, self)}
+            }
+
+            _ => Err(OpErr::IndexedInvalidType(Type::of_val(&t)).into())
+        }
+    }
+
+    pub fn seti(&mut self,t:Value,k:i64,v:Value) -> Result<()> {
+        match t {
+            Value::Table(mut t) => {
+                let prev = t.seti(k,v)?;
+                if let None = prev {
+                    if let Some(result) =  t.meta_call_newidx(k.into(),v, self) {result?};
+                }
+                Ok(())
+            }
+
+            Value::UserData(mut ud) => {
+                unsafe{(*ud.val).seti(k, v, self)}
+            }
 
             _ => Err(OpErr::IndexedInvalidType(Type::of_val(&t)).into())
         }
