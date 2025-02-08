@@ -156,12 +156,12 @@ pub enum ByteCode {
     ToBoolR(Reg),
     ToIntR(Reg),
     ToFloatR(Reg),
-    ToStingR(Reg),
+    ToStrR(Reg),
 
     ToBoolM(Mem),
     ToIntM(Mem),
     ToFloatM(Mem),
-    ToStingM(Mem),
+    ToStrM(Mem),
 
     IsTypeR{reg:Reg,t:Type},
     IsTypeM(MemType),

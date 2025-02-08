@@ -8,6 +8,20 @@ pub enum LuaString {
 }
 
 impl LuaString {
+    pub fn new(str:&str) -> Self {
+        if str.len() <= 24 {
+            Self::Small { marked: false, size: str.len() as u8, array: {
+                let mut array = [0u8;24];
+                for i in 0..str.len() {
+                    array[i] = str.as_bytes()[i];
+                }
+                array
+            }}
+        } else {
+            Self::Big(false, String::from(str))
+        }
+    }
+
     pub fn alloc(self) -> Gc<Self> {
         StringAlloc::alloc(self)
     }

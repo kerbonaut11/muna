@@ -1,3 +1,5 @@
+use std::num::{ParseFloatError, ParseIntError};
+
 use crate::value::Type;
 use crate::table::InvalidKey;
 
@@ -8,10 +10,13 @@ pub enum OpErr {
     UnaryTypeErr{op:UnaryOp,ty:Type},
     CompMetaFuncReturnedNonBool{got:Type},
     TruthyMetaFuncReturnedNonBool{got:Type},
+    CastMetaFuncReturnedWrongType{expected:Type, got:Type},
     InvalidKey(InvalidKey),
     IndexedInvalidType(Type),
     InvalidUdIndex(Type),
     DivZero,
+    ParseIntErr(ParseIntError),
+    ParseFloatErr(ParseFloatError),
 }
 
 #[repr(u8)]
@@ -40,6 +45,10 @@ pub enum UnaryOp {
     Neg,
     Not,
     Len,
+
+    ToInt,
+    ToFloat,
+    ToString
 }
 
 impl From<InvalidKey> for OpErr {

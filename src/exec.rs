@@ -1,4 +1,5 @@
 use crate::bytecode::*;
+use crate::value::Type;
 use crate::vm::Vm;
 use crate::Result;
 
@@ -131,6 +132,19 @@ pub fn exec(vm:&mut Vm,instr:ByteCode) -> Result<()> { match instr {
     B::EqMCF(dest)     => vm.stack[dest] = {let x = vm.program.load_float(); vm.eqf(vm.stack[dest],x)?.into()},
     B::LessMCF(dest)   => vm.stack[dest] = {let x = vm.program.load_float(); vm.lessf(vm.stack[dest],x)?.into()},
     B::LessEqMCF(dest) => vm.stack[dest] = {let x = vm.program.load_float(); vm.less_eqf(vm.stack[dest],x)?.into()},
+
+    B::ToBoolR(dest) => todo!(),
+    B::ToIntR(dest) => vm.regs[dest] = vm.to_int(vm.regs[dest])?.into(),
+    B::ToFloatR(dest) => vm.regs[dest] = vm.to_float(vm.regs[dest])?.into(),
+    B::ToStrR(dest) => vm.regs[dest] = vm.to_str(vm.regs[dest])?.into(),
+
+    B::ToBoolM(dest) => todo!(),
+    B::ToIntM(dest) => vm.stack[dest] = vm.to_int(vm.stack[dest])?.into(),
+    B::ToFloatM(dest) => vm.stack[dest] = vm.to_float(vm.stack[dest])?.into(),
+    B::ToStrM(dest) => vm.stack[dest] = vm.to_str(vm.stack[dest])?.into(),
+
+    B::IsTypeR{reg,t} => vm.regs[reg] = (Type::of_val(&vm.regs[reg]) == t).into(),
+    B::IsTypeM(MemType { mem, t }) => vm.stack[mem] = (Type::of_val(&vm.stack[mem]) == t).into(),
 
     _ => panic!("Unexpected Instruction")
 };Ok(())}
