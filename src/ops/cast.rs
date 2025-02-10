@@ -3,6 +3,52 @@ use crate::{gc::Gc, string::LuaString, value::{Type, Value}, vm::Vm, Result};
 use super::{OpErr, UnaryOp};
 
 impl Vm {
+
+    pub fn to_bool(&mut self,val:Value) -> Result<bool> {
+        match val {
+            Value::Bool(x) => return Ok(x),
+            Value::Int(x) => match x {
+                0 => return Ok(false),
+                1 => return Ok(true),
+                _ => return Err(OpErr::InvalidBoolCast(val).into()),
+            },
+            Value::Float(x) => if x == 0.0 {
+                return Ok(false);
+            } else if x == 1.0 {
+                return Ok(true);
+            } else {
+                return Err(OpErr::InvalidBoolCast(val).into());
+            },
+            Value::String(x) => {
+                match x.to_str().parse::<bool>() {
+                    Ok(x) => return Ok(x),
+                    Err(e) => return Err(OpErr::InvalidBoolCast(val).into()),
+                }
+            },
+
+            Value::Table(mut val) => {
+                if let Some(x) = val.meta_call_unary("__bool", self) {
+                    let x = x?;
+                    return match x {
+                        Value::Bool(x) => Ok(x),
+                        _ => Err(OpErr::CastMetaFuncReturnedWrongType { expected: Type::Bool, got: Type::of_val(&x).into() }.into())
+                    };
+                }
+            },
+            Value::UserData(mut val) => {
+                if let Some(x) = val.meta_call_unary("__bool", self) {
+                    let x = x?;
+                    return match x {
+                        Value::Bool(x) => Ok(x),
+                        _ => Err(OpErr::CastMetaFuncReturnedWrongType { expected: Type::Bool, got: Type::of_val(&x) }.into())
+                    };
+                }
+            },
+            _ => {}
+        }
+        Err(OpErr::UnaryTypeErr { op: UnaryOp::ToBool, ty: Type::of_val(&val) }.into())
+    }
+
     pub fn to_int(&mut self,val:Value) -> Result<i64> {
         match val {
             Value::Bool(x) => return Ok(x as u8 as i64),

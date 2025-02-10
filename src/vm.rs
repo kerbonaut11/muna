@@ -1,12 +1,12 @@
 use std::ops::{Index, IndexMut};
 
-use crate::{bytecode::{ByteCode, Mem, Reg}, exec::exec, function::CallStack, program::Program, stack::Stack, value::Value, Result};
+use crate::{bytecode::{ByteCode, Mem, Reg}, exec::exec, function::CallStack, gc::Gc, program::Program, stack::Stack, string::LuaString, value::Value, Result};
 
 pub struct Vm {
     pub program:Program,
     pub stack:Stack,
     pub regs:Regs,
-    pub name_table:Box<[Box<str>]>,
+    pub name_table:Box<[LuaString]>,
 
     pub call_stack:CallStack,
 }
@@ -54,7 +54,7 @@ impl Vm {
 }
 
 impl Vm {
-    pub fn new(bytecode:Vec<ByteCode>,name_table:Box<[Box<str>]>) -> Self {
+    pub fn new(bytecode:Vec<ByteCode>,name_table:Box<[LuaString]>) -> Self {
         Self { 
             program: Program::new(bytecode),
             stack: Stack::new(100_000),
@@ -70,8 +70,9 @@ impl Vm {
         exec(self, instr)
     }
 
-    pub fn get_name(&self,i:Mem) -> &str {
-        &self.name_table[i.0 as usize]
+    pub fn get_name(&self,i:Mem) -> Gc<LuaString> {
+        let _ref = &self.name_table[i.0 as usize];
+        unsafe{std::mem::transmute(_ref)}
     }
 }
 

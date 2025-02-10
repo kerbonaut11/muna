@@ -1,6 +1,6 @@
 use std::num::{ParseFloatError, ParseIntError};
 
-use crate::value::Type;
+use crate::value::{Type, Value};
 use crate::table::InvalidKey;
 
 #[repr(u8)]
@@ -15,6 +15,7 @@ pub enum OpErr {
     IndexedInvalidType(Type),
     InvalidUdIndex(Type),
     DivZero,
+    InvalidBoolCast(Value),
     ParseIntErr(ParseIntError),
     ParseFloatErr(ParseFloatError),
 }
@@ -46,6 +47,7 @@ pub enum UnaryOp {
     Not,
     Len,
 
+    ToBool,
     ToInt,
     ToFloat,
     ToString

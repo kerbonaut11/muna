@@ -1,6 +1,7 @@
 use crate::function::Function;
 use crate::gc::Gc;
 use crate::string::LuaString;
+use crate::table::Table;
 use crate::upval::UpVal;
 use crate::vm::Vm;
 use crate::Result;
@@ -196,6 +197,18 @@ impl Vm {
             _ => Err(OpErr::IndexedInvalidType(Type::of_val(&t)).into())
         }
     }
+
+    pub fn bool_and(&mut self,lhs:Value,rhs:Value) -> Result<bool> {
+        Ok(self.truthy(lhs)? && self.truthy(rhs)?)
+    }
+
+    pub fn bool_or(&mut self,lhs:Value,rhs:Value) -> Result<bool> {
+        Ok(self.truthy(lhs)? && self.truthy(rhs)?)
+    }
+
+    pub fn bool_not(&mut self,val:Value) -> Result<bool> {
+        Ok(!self.truthy(val)?)
+    }
 }
 
 fn try_to_bool(val:Value) -> Result<bool> {
@@ -243,5 +256,30 @@ impl Value {
             None => return false
         };
         a == b
+    }
+
+    pub fn get_meta_table(&mut self) -> Result<Value> {
+        let opt_t = match self {
+            Value::Table(t) => t.get_meta_table(),
+            Value::UserData(ud) => ud.get_meta_table(),
+            _ => todo!()
+        };
+        Ok(match opt_t {
+            Some(t) => Value::Table(t),
+            None => Value::Nil,
+        })
+    }
+
+    pub fn set_meta_table(&mut self,t:Value) -> Result<()> {
+        let meta = match t {
+            Value::Table(t) => t,
+            _ => todo!(),
+        };
+        match self {
+            Value::Table(t) => t.set_meta_table(meta),
+            Value::UserData(ud) => ud.set_meta_table(meta),
+            _ => todo!()
+        }
+        Ok(())
     }
 }

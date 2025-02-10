@@ -1,4 +1,5 @@
 use crate::bytecode::*;
+use crate::table::Table;
 use crate::value::Type;
 use crate::vm::Vm;
 use crate::Result;
@@ -133,18 +134,54 @@ pub fn exec(vm:&mut Vm,instr:ByteCode) -> Result<()> { match instr {
     B::LessMCF(dest)   => vm.stack[dest] = {let x = vm.program.load_float(); vm.lessf(vm.stack[dest],x)?.into()},
     B::LessEqMCF(dest) => vm.stack[dest] = {let x = vm.program.load_float(); vm.less_eqf(vm.stack[dest],x)?.into()},
 
-    B::ToBoolR(dest) => todo!(),
+    B::BoolAndRR(RegReg{dest, src}) => vm.regs[dest] = vm.bool_and(vm.regs[dest], vm.regs[src])?.into(),
+    B::BoolOrRR(RegReg{dest, src})  => vm.regs[dest] = vm.bool_or(vm.regs[dest], vm.regs[src])?.into(),
+    B::BoolNotR(dest) => vm.regs[dest] = vm.bool_not(vm.regs[dest])?.into(),
+
+    B::BoolAndRM(RegMem{dest, src}) => vm.regs[dest] = vm.bool_and(vm.regs[dest], vm.stack[src])?.into(),
+    B::BoolOrRM(RegMem{dest, src})  => vm.regs[dest] = vm.bool_or(vm.regs[dest], vm.stack[src])?.into(),
+
+    B::BoolAndMR(MemReg{dest, src}) => vm.stack[dest] = vm.bool_and(vm.stack[dest], vm.regs[src])?.into(),
+    B::BoolOrMR(MemReg{dest, src})  => vm.stack[dest] = vm.bool_or(vm.stack[dest], vm.regs[src])?.into(),
+    B::BoolNotM(dest) => vm.stack[dest] = vm.bool_not(vm.stack[dest])?.into(),
+
+    B::ToBoolR(dest) => vm.regs[dest] = vm.to_bool(vm.regs[dest])?.into(),
     B::ToIntR(dest) => vm.regs[dest] = vm.to_int(vm.regs[dest])?.into(),
     B::ToFloatR(dest) => vm.regs[dest] = vm.to_float(vm.regs[dest])?.into(),
     B::ToStrR(dest) => vm.regs[dest] = vm.to_str(vm.regs[dest])?.into(),
 
-    B::ToBoolM(dest) => todo!(),
+    B::ToBoolM(dest) => vm.stack[dest] = vm.to_bool(vm.stack[dest])?.into(),
     B::ToIntM(dest) => vm.stack[dest] = vm.to_int(vm.stack[dest])?.into(),
     B::ToFloatM(dest) => vm.stack[dest] = vm.to_float(vm.stack[dest])?.into(),
     B::ToStrM(dest) => vm.stack[dest] = vm.to_str(vm.stack[dest])?.into(),
 
     B::IsTypeR{reg,t} => vm.regs[reg] = (Type::of_val(&vm.regs[reg]) == t).into(),
     B::IsTypeM(MemType { mem, t }) => vm.stack[mem] = (Type::of_val(&vm.stack[mem]) == t).into(),
+
+
+    B::MakeTable(TableDesc{dest,array_cap,map_cap}) => vm.regs[dest] = Table::with_capacity(array_cap as usize, map_cap as usize).alloc().into(),
+
+    B::Get(TableGet{t,k,dest}) => vm.regs[dest] =  vm.get(vm.regs[t], vm.regs[k])?,
+    B::GetConstKI{t,dest} => {let i = vm.program.load_int(); vm.regs[dest] = vm.geti(vm.regs[t], i)?;},
+    B::GetConstKS{t,dest} => {let i = vm.program.load_mem(); vm.regs[dest] = vm.gets(vm.regs[t], vm.get_name(i))?;},  
+
+    B::Set(TableSet{t,k,v}) => return vm.set(vm.regs[t], vm.regs[k], vm.regs[v]),
+    B::SetConstKI{t,v} => {let i = vm.program.load_int(); return vm.seti(vm.regs[t], i, vm.regs[v]);},   
+    B::SetConstKS{t,v} => {let i = vm.program.load_mem(); return vm.sets(vm.regs[t], vm.get_name(i), vm.regs[v]);},
+
+    B::SetMetaTable(TableReg{t,reg}) => {let meta = vm.regs[reg]; vm.regs[t].set_meta_table(meta)?;},
+    B::GetMetaTable(TableReg{t,reg}) => vm.regs[reg] = vm.regs[t].get_meta_table()?,
+
+    B::OpenUpValR(dest) => vm.regs[dest].open_upval(),
+    B::OpenUpValM(dest) => vm.stack[dest].open_upval(),
+
+    B::GetUpValRR(RegReg{dest,src}) => vm.regs[dest] = vm.regs[src].get_upval(),
+    B::GetUpValRM(RegMem{dest,src}) => vm.regs[dest] = vm.stack[src].get_upval(),
+    B::GetUpValMR(MemReg{dest,src}) => vm.stack[dest] = vm.regs[src].get_upval(),
+
+    B::SetUpValRR(RegReg{dest,src}) => {let val = vm.regs[src]; vm.regs[dest].set_upval(val);},
+    B::SetUpValRM(RegMem{dest,src}) => {let val = vm.stack[src]; vm.regs[dest].set_upval(val);},
+    B::SetUpValMR(MemReg{dest,src}) => {let val = vm.regs[src]; vm.stack[dest].set_upval(val);},
 
     _ => panic!("Unexpected Instruction")
 };Ok(())}

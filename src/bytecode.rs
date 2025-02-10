@@ -153,6 +153,18 @@ pub enum ByteCode {
     LessEqMCF(Mem),
 
 
+    BoolAndRR(RegReg),
+    BoolOrRR(RegReg),
+    BoolNotR(Reg),
+
+    BoolAndRM(RegMem),
+    BoolOrRM(RegMem),
+
+    BoolAndMR(MemReg),
+    BoolOrMR(MemReg),
+    BoolNotM(Mem),
+
+
     ToBoolR(Reg),
     ToIntR(Reg),
     ToFloatR(Reg),
@@ -173,38 +185,35 @@ pub enum ByteCode {
     GetConstKS{t:Reg,dest:Reg},   
 
     Set(TableSet),
-    SetConstKI{t:Reg},   
-    SetConstKS(TableMem),
+    SetConstKI{t:Reg,v:Reg},   
+    SetConstKS{t:Reg,v:Reg},
 
     SetMetaTable(TableReg),
     GetMetaTable(TableReg),
-    GetMethod(TableMem),
 
     OpenUpValR(Reg),
     OpenUpValM(Mem),
 
     GetUpValRR(RegReg),
-    GetUpValMR(MemReg),
     GetUpValRM(RegMem),
+    GetUpValMR(MemReg),
 
     SetUpValRR(RegReg),
-    SetUpValMR(MemReg),
     SetUpValRM(RegMem),
+    SetUpValMR(MemReg),
 
 
-    SkipTrueR(Reg),
-    SkipTrueM(Mem),
-    SkipFalseR(Reg),
-    SkipFalseM(Mem),
-    SkipNilR(Reg),
-    SkipNilM(Mem),
-    SkipNonNilR(Reg),
-    SkipNonNilM(Mem),
+    SkipTrueR(Reg,u8),
+    SkipTrueM(Mem,u8),
+    SkipFalseR(Reg,u8),
+    SkipFalseM(Mem,u8),
+    SkipNilR(Reg,u8),
+    SkipNilM(Mem,u8),
+    SkipNonNilR(Reg,u8),
+    SkipNonNilM(Mem,u8),
 
-    Jump(Offset),
-
-    CallPrep{f:Reg,arg_count:u8},
-    Call,
+    Jump,
+    Call{f:Reg,ret_count:u8},
     Return,
 
     //skips next instruction if the for returns Some()
@@ -264,9 +273,7 @@ pub struct TableMem{pub t:Reg,pub mem:Mem}
 #[derive(Clone, Copy, Debug)]
 pub struct TableReg{pub t:Reg,pub reg:Reg}
 
-#[repr(packed)]
-#[derive(Clone, Copy, Debug)]
-pub struct Offset{high:u8,low:u16}
+
 
 
 

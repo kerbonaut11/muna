@@ -26,6 +26,12 @@ impl UserData {
             Some(unsafe{mem::transmute(self.meta_table_bits)})
         }
     }
+
+    pub fn set_meta_table(&mut self,t:Gc<Table>) {
+        let meta_table_bits:u64 = unsafe{mem::transmute(t)};
+        self.meta_table_bits &= 1;
+        self.meta_table_bits |= meta_table_bits;
+    }
 }
 
 impl Marked for UserData {

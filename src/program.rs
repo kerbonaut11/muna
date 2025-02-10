@@ -1,4 +1,4 @@
-use crate::bytecode::ByteCode;
+use crate::bytecode::{ByteCode, Mem};
 
 pub struct Program {
     slice:Box<[ByteCode]>,
@@ -28,6 +28,14 @@ impl Program {
             let x = *(self.ptr as *const i64);
             self.ptr = self.ptr.add(2);
             x
+        }
+    }
+
+    pub fn load_mem(&mut self) -> Mem {
+        unsafe {
+            let x = *(self.ptr as *const u32);
+            self.ptr = self.ptr.add(1);
+            Mem(x as u16)
         }
     }
 
