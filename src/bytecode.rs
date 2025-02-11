@@ -11,18 +11,18 @@ pub enum ByteCode {
     Pop(Reg),
 
     LoadRNil(Reg),
-    LoabRBool(Reg,bool),
-    LoadRFloat(Reg),
+    LoadRBool(Reg,bool),
     LoadRInt(Reg), 
+    LoadRFloat(Reg),
     LoadRStr(RegMem),
     LoadRFunc(Reg),
 
-    LoadMNil(Reg),
-    LoabMBool(Reg,bool),
-    LoadMFloat(Reg),
-    LoadMInt(Reg), 
-    LoadMStr(RegMem),
-    LoadMFunc(Reg),
+    LoadMNil(Mem),
+    LoadMBool(Mem,bool),
+    LoadMInt(Mem), 
+    LoadMFloat(Mem),
+    LoadMStr(Mem),
+    LoadMFunc(Mem),
 
     AddRR(RegReg),
     SubRR(RegReg),
@@ -203,17 +203,18 @@ pub enum ByteCode {
     SetUpValMR(MemReg),
 
 
-    SkipTrueR(Reg,u8),
-    SkipTrueM(Mem,u8),
-    SkipFalseR(Reg,u8),
-    SkipFalseM(Mem,u8),
-    SkipNilR(Reg,u8),
-    SkipNilM(Mem,u8),
-    SkipNonNilR(Reg,u8),
-    SkipNonNilM(Mem,u8),
+    SkipTrueR(Reg,i8),
+    SkipTrueM(Mem,i8),
+    SkipFalseR(Reg,i8),
+    SkipFalseM(Mem,i8),
+    SkipNilR(Reg,i8),
+    SkipNilM(Mem,i8),
+    SkipNonNilR(Reg,i8),
+    SkipNonNilM(Mem,i8),
 
     Jump,
-    Call{f:Reg,ret_count:u8},
+    JumpBack,
+    Call{f:Reg,args_provided:u8,ret_count:u8},
     Return,
 
     //skips next instruction if the for returns Some()
@@ -280,6 +281,8 @@ pub struct TableReg{pub t:Reg,pub reg:Reg}
 #[test]
 fn size() {
     assert_eq!(std::mem::size_of::<ByteCode>(),4);
-    let hlt = &ByteCode::Halt;
-    println!("Instruction count {}",unsafe{*std::mem::transmute::<&ByteCode,*mut u8>(hlt)});
+    let hlt = ByteCode::Halt;
+    println!("Instruction count {}",unsafe{*std::mem::transmute::<&ByteCode,*mut u8>(&hlt)});
+    let jmp = ByteCode::Jump;
+    println!("{:#x}",unsafe{*std::mem::transmute::<&ByteCode,*mut u32>(&jmp)});
 }

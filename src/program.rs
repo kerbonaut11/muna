@@ -23,11 +23,18 @@ impl Program {
         }
     }
 
+    pub fn load_u64(&mut self) -> u64 {
+        unsafe {
+            let low = *self.ptr;
+            let high = *self.ptr.add(1);
+            self.ptr = self.ptr.add(2);
+            std::mem::transmute((low,high))
+        }
+    }
+
     pub fn load_int(&mut self) -> i64 {
         unsafe {
-            let x = *(self.ptr as *const i64);
-            self.ptr = self.ptr.add(2);
-            x
+            std::mem::transmute(self.load_u64())
         }
     }
 
@@ -41,9 +48,7 @@ impl Program {
 
     pub fn load_float(&mut self) -> f64 {
         unsafe {
-            let x = *(self.ptr as *const f64);
-            self.ptr = self.ptr.add(2);
-            x
+            std::mem::transmute(self.load_u64())
         }
     }
 }

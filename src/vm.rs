@@ -74,10 +74,16 @@ impl Vm {
         let _ref = &self.name_table[i.0 as usize];
         unsafe{std::mem::transmute(_ref)}
     }
+
+    pub fn skip_if(&mut self, cond: bool,offset: i8) {
+        if cond {unsafe{
+            self.program.ptr = self.program.ptr.offset(offset as isize);
+        }}
+    }
 }
 
 
-
+#[derive(Debug)]
 pub struct Regs([Value;Self::COUNT]);
 
 impl Regs {

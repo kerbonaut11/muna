@@ -29,6 +29,13 @@ impl Value {
     pub fn is_nil(&self) -> bool {
         if let Value::Nil = *self {true} else {false}
     }
+
+    pub fn assert_bool(&self,b:bool) {
+        match self {
+            Value::Bool(a) => assert_eq!(*a,b),
+            _ => panic!("assert failed:\n expected Bool got {:?}",Type::of_val(self))
+        }
+    }
 }
 
 impl Hash for Value {

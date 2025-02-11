@@ -1,6 +1,7 @@
 use crate::bytecode::*;
+use crate::function::CallErr;
 use crate::table::Table;
-use crate::value::Type;
+use crate::value::{Type, Value};
 use crate::vm::Vm;
 use crate::Result;
 
@@ -8,10 +9,27 @@ type B = ByteCode;
 
 pub fn exec(vm:&mut Vm,instr:ByteCode) -> Result<()> { match instr {
 
-    B::MovRR(RegReg{dest,src})  => vm.regs[dest] = vm.regs[src],
-    B::MovMR(MemReg{dest,src})  => vm.stack[dest] = vm.regs[src],
-    B::MovRM(RegMem{dest,src})  => vm.regs[dest] = vm.stack[src],
- 
+    B::MovRR(RegReg{dest,src}) => vm.regs[dest] = vm.regs[src],
+    B::MovRM(RegMem{dest,src}) => vm.regs[dest] = vm.stack[src],
+    B::MovMR(MemReg{dest,src}) => vm.stack[dest] = vm.regs[src],
+    B::Push(src) => vm.stack.push(vm.regs[src]),
+    B::Pop(dest) => vm.regs[dest] = vm.stack.pop(),
+
+    B::LoadRNil(dest)                  => vm.regs[dest] = Value::Nil,
+    B::LoadRBool(dest,x)         => vm.regs[dest] = x.into(),
+    B::LoadRInt(dest)                  => vm.regs[dest] = vm.program.load_int().into(),
+    B::LoadRFloat(dest)                => vm.regs[dest] = vm.program.load_float().into(),
+    B::LoadRStr(RegMem{dest,src}) => vm.regs[dest] = vm.get_name(src).into(),
+    B::LoadRFunc(dest) => todo!(),
+
+    B::LoadMNil(dest)                  => vm.stack[dest] = Value::Nil,
+    B::LoadMBool(dest,x)         => vm.stack[dest] = x.into(),
+    B::LoadMInt(dest)                  => vm.stack[dest] = vm.program.load_int().into(),
+    B::LoadMFloat(dest)                => vm.stack[dest] = vm.program.load_float().into(),
+    B::LoadMStr(dest)                  => vm.stack[dest] = {let i = vm.program.load_mem(); vm.get_name(i).into()},
+    B::LoadMFunc(dest) => todo!(),
+
+
     B::AddRR(RegReg{dest,src})  => return vm.reg_reg_op(dest, src, Vm::add),
     B::SubRR(RegReg{dest,src})  => return vm.reg_reg_op(dest, src, Vm::sub),
     B::MulRR(RegReg{dest,src})  => return vm.reg_reg_op(dest, src, Vm::mul),
@@ -182,6 +200,26 @@ pub fn exec(vm:&mut Vm,instr:ByteCode) -> Result<()> { match instr {
     B::SetUpValRR(RegReg{dest,src}) => {let val = vm.regs[src]; vm.regs[dest].set_upval(val);},
     B::SetUpValRM(RegMem{dest,src}) => {let val = vm.stack[src]; vm.regs[dest].set_upval(val);},
     B::SetUpValMR(MemReg{dest,src}) => {let val = vm.regs[src]; vm.stack[dest].set_upval(val);},
+
+    B::SkipTrueR(src,offset)   => {let cond =  vm.truthy(vm.regs[src])?;  vm.skip_if( cond, offset);}
+    B::SkipTrueM(src,offset)   => {let cond =  vm.truthy(vm.stack[src])?; vm.skip_if( cond, offset);}
+    B::SkipFalseR(src,offset)  => {let cond = !vm.truthy(vm.regs[src])?;  vm.skip_if( cond, offset);}
+    B::SkipFalseM(src,offset)  => {let cond = !vm.truthy(vm.stack[src])?; vm.skip_if( cond, offset);}
+    B::SkipNilR(src,offset)    => {let cond = vm.regs[src].is_nil();  vm.skip_if( cond, offset);}
+    B::SkipNilM(src,offset)    => {let cond = vm.stack[src].is_nil(); vm.skip_if( cond, offset);}
+    B::SkipNonNilR(src,offset) => {let cond = vm.regs[src].is_nil();  vm.skip_if( cond, offset);}
+    B::SkipNonNilM(src,offset) => {let cond = vm.stack[src].is_nil(); vm.skip_if( cond, offset);}
+
+
+    B::Jump => unsafe{let offset= std::mem::transmute::<ByteCode,u32>(instr) >> 8; vm.program.ptr = vm.program.ptr.add(offset as usize);},
+    B::JumpBack => unsafe{let offset = std::mem::transmute::<ByteCode,u32>(instr) >> 8; vm.program.ptr = vm.program.ptr.sub(offset as usize);},
+    B::Call{f,args_provided, ret_count} => match vm.regs[f] {
+        Value::Function(f) => vm.call(args_provided as usize, ret_count as usize, &f)?,
+        _ => return Err(CallErr::WrongType(Type::of_val(&vm.regs[f])).into()),
+    }
+    B::Return => vm.ret(),
+
+    B::Halt => return Err(crate::Error::Halt),
 
     _ => panic!("Unexpected Instruction")
 };Ok(())}
