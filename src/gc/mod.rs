@@ -5,7 +5,7 @@ mod traits;
 
 pub use ptr::Gc;
 pub use traits::*;
-pub use alloc::{StringAlloc,TableAlloc, UpValAlloc};
+pub use alloc::{StringAlloc,TableAlloc, UpValAlloc, FunctionAlloc};
 
 
 mod test {

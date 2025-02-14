@@ -273,12 +273,12 @@ impl Value {
     pub fn set_meta_table(&mut self,t:Value) -> Result<()> {
         let meta = match t {
             Value::Table(t) => t,
-            _ => todo!(),
+            _ => panic!("not a table: {:?}",t),
         };
         match self {
             Value::Table(t) => t.set_meta_table(meta),
             Value::UserData(ud) => ud.set_meta_table(meta),
-            _ => todo!()
+            _ => panic!("cannot set mt on {:?}",self)
         }
         Ok(())
     }

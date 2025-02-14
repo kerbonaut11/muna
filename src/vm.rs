@@ -67,6 +67,7 @@ impl Vm {
 
     pub fn exec(&mut self) -> Result<()> {
         let instr = self.program.next();
+        println!("{:?}",instr);
         exec(self, instr)
     }
 

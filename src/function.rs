@@ -1,6 +1,6 @@
 use std::{hash::Hash, ops::Range};
 
-use crate::{bytecode::ByteCode, gc::{MarkDown, Marked}, upval::UpVal, value::{Type, Value}, vm::{Regs, Vm}, Result};
+use crate::{bytecode::ByteCode, gc::{FunctionAlloc, Gc, MarkDown, Marked}, upval::UpVal, value::{Type, Value}, vm::{Regs, Vm}, Error, Result};
 
 #[derive(Debug)]
 pub struct Function {
@@ -40,6 +40,21 @@ impl Function {
             marked: false, 
             up_vals: vec![] 
         }
+    }
+
+    pub fn new(vm:&Vm,offset:usize,arg_count:u8,ret_count:u8) -> Self {
+        Self { 
+            is_call_back: false,
+            ptr: vm.program.ptr_offset(offset) as *const (),
+            arg_count:arg_count,
+            ret_count:ret_count,
+            marked: false, 
+            up_vals: vec![] 
+        }
+    }
+
+    pub fn alloc(self) -> Gc<Self> {
+        FunctionAlloc::alloc(self)
     }
 
     pub fn arg_count(&self) -> usize {self.arg_count as usize}
@@ -84,12 +99,16 @@ impl Hash for Function {
     }
 }
 
+#[derive(Debug)]
+pub enum CallStackEntry {
+    Normal{
+        ret_addres:*const ByteCode,
+        base_ptr:*const Value,
+        ret_count:u8,
+        ret_count_expected:u8
+    },
 
-pub struct CallStackEntry {
-    ret_addres:*const ByteCode,
-    base_ptr:*const Value,
-    ret_count:u8,
-    ret_count_expected:u8
+    Meta,
 }
 
 pub type CallStack = Vec<CallStackEntry>;
@@ -107,7 +126,7 @@ impl Vm {
     }
 
     fn push_call_stack(&mut self,f:&Function,ret_count_expected:usize) {
-        self.call_stack.push(CallStackEntry { 
+        self.call_stack.push(CallStackEntry::Normal { 
             ret_addres: self.program.ptr,
             base_ptr: self.stack.base_ptr,
             ret_count: f.ret_count,
@@ -138,15 +157,8 @@ impl Vm {
         if f.arg_count() != 1 {return Err(CallErr::MetaWrongArgCount{ expected:1, got: f.arg_count() as u8 }.into());}
         if f.ret_count() != 1 {return Err(CallErr::MetaWrongRetCount{ expected:1, got: f.ret_count }.into());}
 
-        self.push_call_stack(f, 1);
-
-        if !f.is_call_back {
-            self.program.ptr = f.ptr as *const ByteCode;
-            Ok(())
-        } else {
-            let f:fn(&mut Vm) -> Result<()> = unsafe{std::mem::transmute(f.ptr)};
-            f(self)
-        }
+        self.call_stack.push(CallStackEntry::Meta);
+        self.call_and_exec(f)
     }
 
     pub fn call_meta(&mut self,f:&Function) -> Result<()> {
@@ -154,15 +166,8 @@ impl Vm {
         if f.arg_count() != 2 {return Err(CallErr::MetaWrongArgCount{ expected:2, got: f.arg_count() as u8 }.into());}
         if f.ret_count() != 1 {return Err(CallErr::MetaWrongRetCount{ expected:1, got: f.ret_count }.into());}
 
-        self.push_call_stack(f, 1);
-
-        if !f.is_call_back {
-            self.program.ptr = f.ptr as *const ByteCode;
-            Ok(())
-        } else {
-            let f:fn(&mut Vm) -> Result<()> = unsafe{std::mem::transmute(f.ptr)};
-            f(self)
-        }
+        self.call_stack.push(CallStackEntry::Meta);
+        self.call_and_exec(f)
     }
 
     pub fn call_meta_new_idx(&mut self,f:&Function) -> Result<()> {
@@ -170,10 +175,22 @@ impl Vm {
         if f.arg_count() != 3 {return Err(CallErr::MetaWrongArgCount{ expected:3, got: f.arg_count() as u8 }.into());}
         if f.ret_count() != 0 {return Err(CallErr::MetaWrongRetCount{ expected:0, got: f.ret_count }.into());}
 
-        self.push_call_stack(f, 0);
+        self.call_stack.push(CallStackEntry::Meta);
+        self.call_and_exec(f)
+    }
 
+    fn call_and_exec(&mut self,f:&Function) -> Result<()> {
         if !f.is_call_back {
             self.program.ptr = f.ptr as *const ByteCode;
+            loop {
+                match self.exec() {
+                    Ok(_) => {},
+                    Err(e) => match e {
+                        Error::Halt => break,
+                        _ => return Err(e),
+                    }
+                }
+            }
             Ok(())
         } else {
             let f:fn(&mut Vm) -> Result<()> = unsafe{std::mem::transmute(f.ptr)};
@@ -181,9 +198,16 @@ impl Vm {
         }
     }
 
-    pub fn ret(&mut self) {
+    pub fn ret(&mut self) -> Result<()>{
 
-        let CallStackEntry { ret_addres, base_ptr, ret_count, ret_count_expected } = self.call_stack.pop().unwrap();
+        let(ret_addres,
+            base_ptr,
+            ret_count,
+            ret_count_expected) 
+        = match self.call_stack.pop().unwrap() {
+            CallStackEntry::Normal { ret_addres, base_ptr, ret_count, ret_count_expected } => (ret_addres,base_ptr,ret_count,ret_count_expected),
+            CallStackEntry::Meta => return Err(crate::Error::Halt)
+        };
         self.program.ptr = ret_addres;
         self.stack.base_ptr = base_ptr as *mut Value;
 
@@ -202,6 +226,7 @@ impl Vm {
                 self.stack.top_ptr.sub(stack_size-stack_size_expected)
             };
         }
+        Ok(())
     }
 }
 

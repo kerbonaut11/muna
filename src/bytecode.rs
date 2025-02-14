@@ -15,14 +15,12 @@ pub enum ByteCode {
     LoadRInt(Reg), 
     LoadRFloat(Reg),
     LoadRStr(RegMem),
-    LoadRFunc(Reg),
+    LoadRFunc{dest:Reg,arg_count:u8,ret_count:u8},
 
     LoadMNil(Mem),
     LoadMBool(Mem,bool),
     LoadMInt(Mem), 
     LoadMFloat(Mem),
-    LoadMStr(Mem),
-    LoadMFunc(Mem),
 
     AddRR(RegReg),
     SubRR(RegReg),

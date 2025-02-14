@@ -1,5 +1,5 @@
 use crate::bytecode::*;
-use crate::function::CallErr;
+use crate::function::{CallErr, Function};
 use crate::table::Table;
 use crate::value::{Type, Value};
 use crate::vm::Vm;
@@ -20,14 +20,15 @@ pub fn exec(vm:&mut Vm,instr:ByteCode) -> Result<()> { match instr {
     B::LoadRInt(dest)                  => vm.regs[dest] = vm.program.load_int().into(),
     B::LoadRFloat(dest)                => vm.regs[dest] = vm.program.load_float().into(),
     B::LoadRStr(RegMem{dest,src}) => vm.regs[dest] = vm.get_name(src).into(),
-    B::LoadRFunc(dest) => todo!(),
+    B::LoadRFunc{dest,arg_count,ret_count} => {
+        let offset = vm.program.load_u64() as usize;
+        vm.regs[dest] = Function::new(vm, offset, arg_count, ret_count).alloc().into();
+    },
 
     B::LoadMNil(dest)                  => vm.stack[dest] = Value::Nil,
     B::LoadMBool(dest,x)         => vm.stack[dest] = x.into(),
     B::LoadMInt(dest)                  => vm.stack[dest] = vm.program.load_int().into(),
     B::LoadMFloat(dest)                => vm.stack[dest] = vm.program.load_float().into(),
-    B::LoadMStr(dest)                  => vm.stack[dest] = {let i = vm.program.load_mem(); vm.get_name(i).into()},
-    B::LoadMFunc(dest) => todo!(),
 
 
     B::AddRR(RegReg{dest,src})  => return vm.reg_reg_op(dest, src, Vm::add),
@@ -217,7 +218,7 @@ pub fn exec(vm:&mut Vm,instr:ByteCode) -> Result<()> { match instr {
         Value::Function(f) => vm.call(args_provided as usize, ret_count as usize, &f)?,
         _ => return Err(CallErr::WrongType(Type::of_val(&vm.regs[f])).into()),
     }
-    B::Return => vm.ret(),
+    B::Return => vm.ret()?,
 
     B::Halt => return Err(crate::Error::Halt),
 

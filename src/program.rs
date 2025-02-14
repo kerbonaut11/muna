@@ -51,4 +51,10 @@ impl Program {
             std::mem::transmute(self.load_u64())
         }
     }
+
+    pub fn ptr_offset(&self,offset:usize) -> *const ByteCode {
+        unsafe {
+            std::mem::transmute(&self.slice[offset])
+        }
+    }
 }

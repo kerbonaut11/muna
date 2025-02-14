@@ -83,9 +83,11 @@ macro_rules! global_alloc {
     };
 }
 
+use crate::function::Function;
 use crate::table::Table;
 use crate::string::LuaString;
 use crate::upval::UpVal;
 global_alloc!{LuaString,STRING_ALLOC,StringAlloc}
 global_alloc!{Table,TABLE_ALLOC,TableAlloc}
 global_alloc!{UpVal,UP_VAL_ALLOC,UpValAlloc}
+global_alloc!{Function,FUNCTION_ALLOC,FunctionAlloc}
