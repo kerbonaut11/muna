@@ -1,9 +1,11 @@
-use std::{iter::Peekable, str::Bytes,};
+use std::{hash::Hash, iter::Peekable, str::Bytes};
 
-use super::key_words::KEY_WORDS;
+use super::patterns::{KEY_WORDS, MERGE_PATTERNS};
 
-#[derive(Debug,Clone)]
+#[derive(Debug,Clone,PartialEq)]
 pub enum Token {
+    Invalid,
+
     Local,
 
     Ident(Box<str>),
@@ -13,8 +15,10 @@ pub enum Token {
     FloatLiteral(f64),
     StrLiteral(Box<str>),
 
+    Assing,
+
     Add,Sub,Div,Mul,IDiv,Mod,Pow,
-    And,Or,Shr,Shl,
+    And,Or,Xor,Shr,Shl,
     BoolAnd,BoolOr,BoolNot,
     Not,Neg,Len,
     Eq,NotEq,Less,LessEq,Greater,GreaterEq,Is,
@@ -23,10 +27,27 @@ pub enum Token {
     Colon,Comma,Dot
 }
 
+impl Token {
+    pub fn tag(&self) -> u8 {
+        unsafe {
+            use std::ptr;
+            *(ptr::from_ref(self) as *const u8)
+        }
+    }
+}
+
+impl Hash for Token {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        state.write_u8(self.tag());
+    }
+}
+
+impl Eq for Token {}
+
 #[derive(Debug)]
 pub enum TokenizerErr {
     NonAscii,
-    InvalidSymbol,
+    InvalidSymbol(u8),
     EarlyEOF,
 }
 
@@ -64,12 +85,30 @@ pub fn parse(tokens:&mut Vec<Token>,bytes:&mut Peekable<Bytes>) -> Result<()> {
         b':' => Token::Colon,
 
         b'+' => Token::Add,
+        b'-' => Token::Sub,
+        b'*' => Token::Mul,
+        b'/' => Token::Div,
+        b'%' => Token::Mod,
+        b'^' => Token::Pow,
 
+        b'&' => Token::And,
+        b'|' => Token::Or,
+        b'~' => Token::Xor,
+
+        b'=' => Token::Assing,
+        b'<' => Token::Less,
+        b'>' => Token::Greater,
 
         b' ' | b'\t' | b'\n' => return parse(tokens, bytes),
-        _ => return Err(TokenizerErr::InvalidSymbol)
+        _ => return Err(TokenizerErr::InvalidSymbol(byte))
     };
-    tokens.push(token);
+
+    let prev_token = tokens.last().unwrap_or(&Token::Invalid);
+    match MERGE_PATTERNS.get(&(prev_token.tag(), token.tag())) {
+         Some(token) => *tokens.last_mut().unwrap() = token.clone(),
+        None => tokens.push(token),
+    }
+
     parse(tokens, bytes)
 }
 
@@ -132,11 +171,11 @@ fn parse_binary(bytes:&mut Peekable<Bytes>) -> Result<Token> {
 }
 
 fn parse_int(first:u8,bytes:&mut Peekable<Bytes>) -> Result<Token> {
-    let mut x = first as i64;
+    let mut x = (first-b'0') as i64;
     loop {
         let byte = *bytes.peek().ok_or(TokenizerErr::EarlyEOF)?;
         match byte {
-            b'0'..=b'9' => x = (x*10)+x, 
+            b'0'..=b'9' => x = (x*10) + (byte-b'0') as i64, 
             b'.' => {
                 let _ = bytes.next();
                 return parse_float_decimal(x, bytes);
@@ -155,7 +194,7 @@ fn parse_float_decimal(whole:i64,bytes:&mut Peekable<Bytes>) -> Result<Token> {
         match byte {
             b'0'..b'9' => {
                 x += (byte-b'0') as f64 * pow;
-                pow *= pow;
+                pow *= 0.1;
             }, 
             _ => return Ok(Token::FloatLiteral(x)),
         }
@@ -182,7 +221,7 @@ fn parse_str(bytes:&mut Peekable<Bytes>) -> Token {
 
 #[test]
 fn test() {
-    let str = "x:f(32.4)";
+    let str = "local foo = bar.baz:f(32.42 + (4<<i), \"abc\")";
     let tokens = &mut vec![];
     match parse(tokens,&mut str.bytes().peekable()) {
         Ok(_) => {},

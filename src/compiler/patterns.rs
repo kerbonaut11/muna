@@ -14,3 +14,15 @@ lazy_static! {
         m
     };
 }
+
+lazy_static! {
+    pub static ref MERGE_PATTERNS: HashMap<(u8,u8),Token> = {
+        let mut m = HashMap::new();
+        m.insert((Token::Less.tag(),      Token::Less.tag()),    Token::Shl);
+        m.insert((Token::Greater.tag(),   Token::Greater.tag()), Token::Shr);
+        m.insert((Token::Assing.tag(),    Token::Assing.tag()),  Token::Eq);
+        m.insert((Token::Greater.tag(),   Token::Assing.tag()),  Token::GreaterEq);
+        m.insert((Token::Less.tag(),      Token::Assing.tag()),  Token::LessEq);
+        m
+    };
+}
