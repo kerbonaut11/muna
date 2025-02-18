@@ -5,7 +5,14 @@ use super::tokenizer::Token;
 lazy_static! {
     pub static ref KEY_WORDS: HashMap<Box<str>,Token> = {
         let mut m = HashMap::new();
-        m.insert("local".into(), Token::Local);
+        m.insert("local".into(),    Token::Local);
+        m.insert("function".into(), Token::Function);
+        m.insert("if".into(),       Token::If);
+        m.insert("else".into(),     Token::Else);
+        m.insert("while".into(),    Token::While);
+        m.insert("do".into(),       Token::Do);
+        m.insert("end".into(),      Token::End);
+
         m.insert("and".into(),   Token::BoolAnd);
         m.insert("or".into(),    Token::BoolOr);
         m.insert("not".into(),   Token::BoolNot);

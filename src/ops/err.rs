@@ -33,12 +33,19 @@ pub enum Op {
 
     And,
     Or,
+    Xor,
     Shr,
     Shl,
 
-    Eq,
     Less,
     LessEq,
+    Eq,
+    NotEq,
+    Greater,
+    GreaterEq,
+
+    BoolAnd,
+    BoolOr
 }
 
 #[derive(Debug)]
@@ -50,7 +57,9 @@ pub enum UnaryOp {
     ToBool,
     ToInt,
     ToFloat,
-    ToString
+    ToString,
+
+    BoolNot
 }
 
 impl From<InvalidKey> for OpErr {

@@ -6,10 +6,14 @@ use super::patterns::{KEY_WORDS, MERGE_PATTERNS};
 pub enum Token {
     Invalid,
 
-    Local,
+    Local,Return,Function,
+    If,Else,While,For,Do,
+    Break,
+    End,
 
     Ident(Box<str>),
 
+    Nil,
     BoolLiteral(bool),
     IntLiteral(i64),
     FloatLiteral(f64),
@@ -23,7 +27,7 @@ pub enum Token {
     Not,Neg,Len,
     Eq,NotEq,Less,LessEq,Greater,GreaterEq,Is,
 
-    BracketO,BracketC,CurlyO,CurlyC,SquareO,SquareC,
+    RoundO,RoundC,CurlyO,CurlyC,SquareO,SquareC,
     Colon,Comma,Dot
 }
 
@@ -53,7 +57,20 @@ pub enum TokenizerErr {
 
 type Result<T> = std::result::Result<T,TokenizerErr>;
 
-pub fn parse(tokens:&mut Vec<Token>,bytes:&mut Peekable<Bytes>) -> Result<()> {
+pub fn parse(str:&str) -> Result<Vec<Token>> {
+    let mut tokens = Vec::new();
+    match parse_rec(&mut tokens, &mut str.bytes().peekable()) {
+        Ok(_) => {},
+        Err(e) => {
+            println!("{:?}",tokens);
+            return Err(e);
+        }
+    }
+    Ok(tokens)
+}
+
+
+fn parse_rec(tokens:&mut Vec<Token>,bytes:&mut Peekable<Bytes>) -> Result<()> {
     let byte = match bytes.next() {
         Some(byte) => byte,
         None => return Ok(()),
@@ -67,14 +84,14 @@ pub fn parse(tokens:&mut Vec<Token>,bytes:&mut Peekable<Bytes>) -> Result<()> {
             let name = parse_ident(byte,bytes)?.into_boxed_str();
             match KEY_WORDS.get(&name) {
                 Some(t) => t.clone(),
-                None => Token::Ident(name)
+                None => Token::Ident(name.into())
             }
         },
         b'0'..=b'9' => parse_num(byte,bytes)?,
         b'"' => parse_str(bytes),
 
-        b'(' => Token::BracketO,
-        b')' => Token::BracketC,
+        b'(' => Token::RoundO,
+        b')' => Token::RoundC,
         b'{' => Token::CurlyO,
         b'}' => Token::CurlyC,
         b'[' => Token::SquareO,
@@ -91,6 +108,9 @@ pub fn parse(tokens:&mut Vec<Token>,bytes:&mut Peekable<Bytes>) -> Result<()> {
         b'%' => Token::Mod,
         b'^' => Token::Pow,
 
+        b'!' => Token::Not,
+        b'#' => Token::Len,
+
         b'&' => Token::And,
         b'|' => Token::Or,
         b'~' => Token::Xor,
@@ -99,7 +119,7 @@ pub fn parse(tokens:&mut Vec<Token>,bytes:&mut Peekable<Bytes>) -> Result<()> {
         b'<' => Token::Less,
         b'>' => Token::Greater,
 
-        b' ' | b'\t' | b'\n' => return parse(tokens, bytes),
+        b' ' | b'\t' | b'\n' => return parse_rec(tokens, bytes),
         _ => return Err(TokenizerErr::InvalidSymbol(byte))
     };
 
@@ -109,7 +129,7 @@ pub fn parse(tokens:&mut Vec<Token>,bytes:&mut Peekable<Bytes>) -> Result<()> {
         None => tokens.push(token),
     }
 
-    parse(tokens, bytes)
+    parse_rec(tokens, bytes)
 }
 
 fn parse_ident(first:u8,bytes:&mut Peekable<Bytes>) -> Result<String> {
@@ -207,11 +227,11 @@ fn parse_str(bytes:&mut Peekable<Bytes>) -> Token {
     loop {
         let byte = match bytes.next() {
             Some(byte) => byte,
-            None => return Token::StrLiteral(str.into_boxed_str()),
+            None => return Token::StrLiteral(str.into()),
         };
 
         if byte == b'"' {
-            return Token::StrLiteral(str.into_boxed_str());
+            return Token::StrLiteral(str.into());
         } else {
             str.push(byte as char);
         }
@@ -221,14 +241,8 @@ fn parse_str(bytes:&mut Peekable<Bytes>) -> Token {
 
 #[test]
 fn test() {
-    let str = "local foo = bar.baz:f(32.42 + (4<<i), \"abc\")";
-    let tokens = &mut vec![];
-    match parse(tokens,&mut str.bytes().peekable()) {
-        Ok(_) => {},
-        Err(e) => {
-            println!("{:?}",tokens);
-            panic!("{:?}",e)
-        }
+    match parse( "local foo = bar.baz:f(32.42 + (4<<i), \"abc\")") {
+        Ok(tokens) => println!("{:?}",tokens),
+        Err(e) => panic!("{:?}",e)
     }
-    println!("{:?}",tokens);
 }
