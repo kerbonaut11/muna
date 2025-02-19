@@ -1,8 +1,8 @@
 use std::{u32, usize};
 
-use crate::ops::{Op, UnaryOp};
+use crate::{function::Function, ops::{Op, UnaryOp}};
 
-use super::tokenizer::Token;
+use super::{ast_gen::Block, tokenizer::Token};
 
 pub enum Expr {
     NilLiteral,
@@ -11,7 +11,7 @@ pub enum Expr {
     FloatLiteral(f64),
     StrLiteral(Box<str>),
     TableLiteral(TableLiteral),
-    Function,
+    Function(InlineFunction),
 
     Ident(Box<str>),
 
@@ -31,6 +31,11 @@ pub enum TableLiteralIdx {
 }
 
 pub type TableLiteral = Vec<(TableLiteralIdx,Expr)>;
+
+pub struct InlineFunction {
+    args:Vec<Box<str>>,
+    block:Block
+}
 
 #[derive(Debug)]
 pub enum ExprParseErr {
@@ -72,7 +77,17 @@ impl Expr {
                     v.display_tree(depth+2);
                 }
             }
-            //Expr::Function                 => print!("{:?}\n",name),
+
+            Expr::Function(f) => {
+                print!("function(");
+                for (i,arg) in f.args.iter().enumerate() {
+                    print!("{}",arg);
+                    if i != arg.len() {
+                        print!(",");
+                    }
+                }
+                print!(")\n");
+            },
 
             Expr::Binary { op, lhs, rhs } => {
                 print!("{:?}:\n",op);
@@ -105,7 +120,6 @@ impl Expr {
                     arg.display_tree(depth+1);
                 }
             }
-            _ => todo!()
         }
     }
 }
@@ -147,6 +161,44 @@ fn parse_rec(tokens:&[Token]) -> Result<Expr> {
             op,
             val: Box::new(parse_rec(&tokens[1..])?)
         });
+    }
+
+    match tokens[0] {
+        Token::Function => {
+            if Token::find_matching_bracket(tokens) == Some(tokens.len()-1) {
+                let args_close_bracket = Token::find(tokens, &Token::RoundC).unwrap();
+                let mut arg_iter = tokens[2..args_close_bracket].into_iter();
+                let mut args:Vec<Box<str>> = vec![];
+                loop {
+                    let arg_name = match arg_iter.next() {
+                        Some(token) => match token {
+                            Token::Ident(name) => name,
+                            _ => panic!("invalid arg {:?}",token)
+                        },
+
+                        None => break
+                    };
+                    args.push(arg_name.clone());
+
+                    match arg_iter.next() {
+                        Some(token) => match token {
+                            Token::Comma => {},
+                            _ => panic!("expected comma, got {:?}",token)
+                        },
+
+                        None => break
+                    }
+                }
+
+                let block = vec![];
+
+                return Ok(Expr::Function(InlineFunction{
+                    args,
+                    block,
+                }));
+            }
+        }
+        _ => {}
     }
 
     match tokens.last().unwrap() {
@@ -369,6 +421,6 @@ fn test_lowest_order_op() {
 #[test]
 fn test_parse() {
     use super::tokenizer;
-    let tokens = tokenizer::parse("{1,2,x=32}[i]({},f(32,true))").unwrap();
+    let tokens = tokenizer::parse("{1,2,x=function(a,x) 1+a+x end}[i]({},f(32,true))").unwrap();
     Expr::parse(&tokens).unwrap().display_tree(0);
 }

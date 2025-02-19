@@ -1,5 +1,15 @@
 use super::tokenizer::Token;
 
+pub type Block = Vec<AstNode>;
+
+pub enum AstNode {
+    
+}
+
+pub struct Function {
+    
+}
+
 impl Token {
     pub fn find(tokens:&[Token],target:&Token) -> Option<usize> {
         for (i,token) in tokens.iter().enumerate() {
