@@ -56,7 +56,22 @@ impl Expr {
             Expr::IntLiteral(x)      => print!("int({:?})\n",x),
             Expr::FloatLiteral(x)    => print!("float({:?})\n",x),
             Expr::StrLiteral(x) => print!("string({:?})\n",x),
-            //Expr::TableLiteral             => print!("{:?}\n",name),
+            Expr::TableLiteral(t) => {
+                print!("table:\n");
+                for (k,v) in t {
+                    for _ in 0..depth+1 {
+                        print!("  ");
+                    }
+                    match k {
+                        TableLiteralIdx::BoolLiteral(x)    => print!("bool({:?}) =\n",x),
+                        TableLiteralIdx::IntLiteral(x)      => print!("int({:?}) =\n",x),
+                        TableLiteralIdx::FloatLiteral(x)    => print!("float({:?}) =\n",x),
+                        TableLiteralIdx::StrLiteral(x) => print!("str({:?}) =\n",x),
+                    }
+
+                    v.display_tree(depth+2);
+                }
+            }
             //Expr::Function                 => print!("{:?}\n",name),
 
             Expr::Binary { op, lhs, rhs } => {
@@ -161,12 +176,12 @@ fn parse_rec(tokens:&[Token]) -> Result<Expr> {
                             args, 
                         });
                     }
-                } else {
-                    return Ok(Expr::Call{
-                        function: Box::new(parse_rec(&tokens[0..open_idx])?),
-                        args,
-                    });
-                }   
+                }
+                println!("{}",open_idx);
+                return Ok(Expr::Call{
+                    function: Box::new(parse_rec(&tokens[0..open_idx])?),
+                    args,
+                });
             }
         }
 
@@ -184,15 +199,68 @@ fn parse_rec(tokens:&[Token]) -> Result<Expr> {
         }
         _ => {}
     }
-    panic!()
+    panic!("{:?}",tokens);
 }
 
+
 fn parse_args(tokens:&[Token]) -> Result<Vec<Expr>> {
-    todo!()
+    if let Some(comma_idx) = Token::find_outside_of_brackets(tokens, &Token::Comma) {
+        let arg = Expr::parse(&tokens[..comma_idx])?;
+        let mut args = parse_args(&tokens[comma_idx+1..])?;
+        args.insert(0, arg);
+        Ok(args)
+    } else {
+        Ok(vec![Expr::parse(&tokens[..])?])
+    }
 }
 
 fn parse_table_literal(tokens:&[Token]) -> Result<TableLiteral> {
-    todo!()
+    parse_table_literal_rec(tokens, &mut 0)
+}
+
+fn parse_table_literal_rec(tokens:&[Token],idx:&mut i64) -> Result<TableLiteral> {
+    if tokens.is_empty() {
+        return Ok(vec![]);
+    }
+
+    if let Some(comma_idx) = Token::find_outside_of_brackets(tokens, &Token::Comma) {
+        let elem = parse_table_literal_element(&tokens[..comma_idx],idx)?;
+        let mut elems = parse_table_literal_rec(&tokens[comma_idx+1..],idx)?;
+        elems.insert(0, elem);
+        Ok(elems)
+    } else {
+        Ok(vec![parse_table_literal_element(&tokens[..],idx)?])
+    }
+}
+
+fn parse_table_literal_element(tokens:&[Token],idx:&mut i64) -> Result<(TableLiteralIdx,Expr)> {
+    let has_equal = if tokens.len() > 2 {
+        tokens[1] == Token::Assing
+    } else {
+        false
+    };
+
+    let index = if has_equal {
+        match &tokens[0] {
+            Token::BoolLiteral(x) => TableLiteralIdx::BoolLiteral(*x), 
+            Token::IntLiteral(x)   => TableLiteralIdx::IntLiteral(*x), 
+            Token::FloatLiteral(x) => TableLiteralIdx::FloatLiteral(*x), 
+            Token::StrLiteral(x)|Token::Ident(x) => TableLiteralIdx::StrLiteral(x.clone()), 
+            _ => panic!("invalid idx {:?}",tokens[0])
+        }
+    } else {
+        let temp = *idx;
+        *idx += 1;
+        TableLiteralIdx::IntLiteral(temp)
+    };
+
+    let val = if has_equal {
+        Expr::parse(&tokens[2..])
+    } else {
+        Expr::parse(&tokens[..])
+    }?;
+
+    Ok((index,val))
 }
 
 fn find_highest_order_op(tokens:&[Token]) -> Option<usize> {
@@ -301,6 +369,6 @@ fn test_lowest_order_op() {
 #[test]
 fn test_parse() {
     use super::tokenizer;
-    let tokens = tokenizer::parse("foo[i]").unwrap();
+    let tokens = tokenizer::parse("{1,2,x=32}[i]({},f(32,true))").unwrap();
     Expr::parse(&tokens).unwrap().display_tree(0);
 }

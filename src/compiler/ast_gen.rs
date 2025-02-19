@@ -8,6 +8,17 @@ impl Token {
         None
     }
 
+    pub fn find_outside_of_brackets(tokens:&[Token],target:&Token) -> Option<usize> {
+        let mut depth = 0;
+        for (i,token) in tokens.iter().enumerate() {
+            depth += token.brack_depth();
+            if token == target && depth <= 0 {
+                return Some(i);
+            }
+        }
+        None
+    }
+
     pub fn find_matching_bracket(tokens:&[Token]) -> Option<usize> {
         let open = tokens[0].clone();
         let close = match open {
