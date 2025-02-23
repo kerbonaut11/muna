@@ -1,8 +1,8 @@
 use std::{u32, usize};
 
-use crate::{function::Function, ops::{Op, UnaryOp}};
+use crate::{compiler::ast_gen, function::Function, ops::{Op, UnaryOp}};
 
-use super::{ast_gen::Block, tokenizer::Token};
+use super::{ast_gen::Block, tokenizer::Token, err::Result};
 
 pub enum Expr {
     NilLiteral,
@@ -37,19 +37,13 @@ pub struct InlineFunction {
     block:Block
 }
 
-#[derive(Debug)]
-pub enum ExprParseErr {
-    UnmatchedBracket
-}
-
-pub type Result<T> = std::result::Result<T,ExprParseErr>;
 
 impl Expr {
     pub fn parse(tokens:&[Token]) -> Result<Expr> {
         parse_rec(tokens)
     }
 
-    fn display_tree(&self,depth:u32) {
+    pub fn display_tree(&self,depth:u32) {
         for _ in 0..depth {
             print!("  ");
         }
@@ -124,17 +118,9 @@ impl Expr {
     }
 }
 
-impl Token {
-    pub fn brack_depth(&self) -> i32 {
-        match self {
-            Token::RoundO|Token::CurlyO|Token::SquareO|Token::Function|Token::Do =>  1,
-            Token::RoundC|Token::CurlyC|Token::SquareC|Token::End                => -1,
-            _ => 0,
-        }
-    }
-}
 
 fn parse_rec(tokens:&[Token]) -> Result<Expr> {
+
     if tokens.len() == 1 {
         return Ok(match &tokens[0] {
             Token::Nil => Expr::NilLiteral,
@@ -165,8 +151,10 @@ fn parse_rec(tokens:&[Token]) -> Result<Expr> {
 
     match tokens[0] {
         Token::Function => {
-            if Token::find_matching_bracket(tokens) == Some(tokens.len()-1) {
-                let args_close_bracket = Token::find(tokens, &Token::RoundC).unwrap();
+            let args_close_bracket = Token::find(tokens, &Token::RoundC).unwrap();
+            let block_close_bracket = Token::find_matching_bracket(tokens,args_close_bracket+1);
+
+            if block_close_bracket == Some(tokens.len()-2-args_close_bracket) {
                 let mut arg_iter = tokens[2..args_close_bracket].into_iter();
                 let mut args:Vec<Box<str>> = vec![];
                 loop {
@@ -191,6 +179,7 @@ fn parse_rec(tokens:&[Token]) -> Result<Expr> {
                 }
 
                 let block = vec![];
+                //let block = ast_gen::parse_block(tokens).unwrap();
 
                 return Ok(Expr::Function(InlineFunction{
                     args,
@@ -229,7 +218,7 @@ fn parse_rec(tokens:&[Token]) -> Result<Expr> {
                         });
                     }
                 }
-                println!("{}",open_idx);
+
                 return Ok(Expr::Call{
                     function: Box::new(parse_rec(&tokens[0..open_idx])?),
                     args,
@@ -354,7 +343,7 @@ impl Token {
 
     pub fn is_valid_end_of_expr(&self) -> bool {
         match self {
-            Token::RoundC|Token::CurlyC|Token::SquareC|Token::End|
+            Token::RoundC|Token::CurlyC|Token::SquareC|
             Token::Ident(_)|Token::Nil|Token::BoolLiteral(_)|Token::IntLiteral(_)|Token::FloatLiteral(_)|Token::StrLiteral(_) => true,
             _ => false
         }
@@ -421,6 +410,6 @@ fn test_lowest_order_op() {
 #[test]
 fn test_parse() {
     use super::tokenizer;
-    let tokens = tokenizer::parse("{1,2,x=function(a,x) 1+a+x end}[i]({},f(32,true))").unwrap();
+    let tokens = tokenizer::parse("{1,2,x=function(a,x) {1+a+x} }[i]({},f(32,true))").unwrap();
     Expr::parse(&tokens).unwrap().display_tree(0);
 }

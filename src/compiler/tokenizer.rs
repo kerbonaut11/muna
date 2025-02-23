@@ -1,15 +1,13 @@
 use std::{hash::Hash, iter::Peekable, str::Bytes};
 
-use super::patterns::{KEY_WORDS, MERGE_PATTERNS};
-
 #[derive(Debug,Clone,PartialEq)]
 pub enum Token {
     Invalid,
 
-    Local,Return,Function,
-    If,Else,While,For,Do,
+    Local,Function,Return,
+    If,Elif,Else,While,For,
     Break,
-    End,
+    Endline,
 
     Ident(Box<str>),
 
@@ -81,12 +79,24 @@ fn parse_rec(tokens:&mut Vec<Token>,bytes:&mut Peekable<Bytes>) -> Result<()> {
     let token = match byte {
 
         b'a'..=b'z' | b'A'..=b'Z' => {
-            let name = parse_ident(byte,bytes)?.into_boxed_str();
-            match KEY_WORDS.get(&name) {
-                Some(t) => t.clone(),
-                None => Token::Ident(name.into())
+            let name = parse_ident(byte,bytes)?;
+            match name.as_str() {
+                "local"    => Token::Local,
+                "function" => Token::Function,
+                "if"       => Token::If,
+                "elif"     => Token::Elif,
+                "else"     => Token::Else,
+                "while"    => Token::While,
+
+                "and"      => Token::BoolAnd,
+                "or"       => Token::BoolOr,
+                "not"      => Token::BoolNot,
+                "true"     => Token::BoolLiteral(true),
+                "flase"    => Token::BoolLiteral(false),
+                _ => Token::Ident(name.into())
             }
         },
+
         b'0'..=b'9' => parse_num(byte,bytes)?,
         b'"' => parse_str(bytes),
 
@@ -100,6 +110,7 @@ fn parse_rec(tokens:&mut Vec<Token>,bytes:&mut Peekable<Bytes>) -> Result<()> {
         b'.' => Token::Dot,
         b',' => Token::Comma,
         b':' => Token::Colon,
+        b';' => Token::Endline,
 
         b'+' => Token::Add,
         b'-' => Token::Sub,
@@ -123,10 +134,22 @@ fn parse_rec(tokens:&mut Vec<Token>,bytes:&mut Peekable<Bytes>) -> Result<()> {
         _ => return Err(TokenizerErr::InvalidSymbol(byte))
     };
 
-    let prev_token = tokens.last().unwrap_or(&Token::Invalid);
-    match MERGE_PATTERNS.get(&(prev_token.tag(), token.tag())) {
-         Some(token) => *tokens.last_mut().unwrap() = token.clone(),
-        None => tokens.push(token),
+    if tokens.is_empty() {
+        tokens.push(token);
+        return parse_rec(tokens, bytes);
+    }
+
+    let prev_token = tokens.pop().unwrap();
+    match (&token,&prev_token) {
+        (Token::Less,     Token::Less)    => tokens.push(Token::Shl),
+        (Token::Greater,  Token::Greater) => tokens.push(Token::Shr),
+        (Token::Assing,   Token::Assing)  => tokens.push(Token::Eq),
+        (Token::Greater,  Token::Assing)  => tokens.push(Token::GreaterEq),
+        (Token::Less,     Token::Assing)  => tokens.push(Token::LessEq),
+        _ => {
+            tokens.push(prev_token);
+            tokens.push(token);
+        },
     }
 
     parse_rec(tokens, bytes)
