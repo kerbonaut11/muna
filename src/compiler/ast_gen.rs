@@ -56,6 +56,10 @@ fn find_start_of_next_statement(tokens:&[Token]) -> usize {
     let mut i = 1usize;
     let mut depth = tokens[0].brack_depth();
     loop {
+        if i == tokens.len() {
+            return i;
+        }
+        
         let prev = &tokens[i-1];
         let next = &tokens[i];
         if depth == 0 {
@@ -68,9 +72,6 @@ fn find_start_of_next_statement(tokens:&[Token]) -> usize {
 
         depth += next.brack_depth();
         i += 1;
-        if i == tokens.len() {
-            return i;
-        }
     }
 }
 
@@ -412,6 +413,23 @@ fn assing_test() {
     assert!(x.len() == 2);
     match &x[0] {
         AstNode::Assing(x) => {
+            x.lhs.iter().for_each(|x| x.display_tree(0));
+            x.rhs.iter().for_each(|x| x.display_tree(0));
+        }
+
+        _ => panic!() 
+    }
+
+    match x[1] {
+        AstNode::Break => {}
+        _ => panic!()
+    }
+
+    let tokens = tokenizer::parse("local x = function(x,y) {return x+y} break").unwrap();
+    let x = parse_block(&tokens).unwrap();
+    assert!(x.len() == 2);
+    match &x[0] {
+        AstNode::Declaration(x) => {
             x.lhs.iter().for_each(|x| x.display_tree(0));
             x.rhs.iter().for_each(|x| x.display_tree(0));
         }

@@ -154,7 +154,7 @@ fn parse_rec(tokens:&[Token]) -> Result<Expr> {
             let args_close_bracket = Token::find(tokens, &Token::RoundC).unwrap();
             let block_close_bracket = Token::find_matching_bracket(tokens,args_close_bracket+1);
 
-            if block_close_bracket == Some(tokens.len()-2-args_close_bracket) {
+            if block_close_bracket == Some(tokens.len()-1) {
                 let mut arg_iter = tokens[2..args_close_bracket].into_iter();
                 let mut args:Vec<Box<str>> = vec![];
                 loop {
@@ -178,8 +178,7 @@ fn parse_rec(tokens:&[Token]) -> Result<Expr> {
                     }
                 }
 
-                let block = vec![];
-                //let block = ast_gen::parse_block(tokens).unwrap();
+                let block = ast_gen::parse_block(&tokens[args_close_bracket+2..block_close_bracket.unwrap()]).unwrap();
 
                 return Ok(Expr::Function(InlineFunction{
                     args,
