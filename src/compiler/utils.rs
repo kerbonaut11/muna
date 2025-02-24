@@ -66,4 +66,30 @@ impl Token {
             _ => 0,
         }
     }
+
+    pub fn parse_list_of_idents(tokens:&[Token]) -> Vec<Box<str>> {
+        let mut ident_iter = tokens.into_iter();
+        let mut idents:Vec<Box<str>> = vec![];
+        loop {
+            let name = match ident_iter.next() {
+                Some(token) => match token {
+                    Token::Ident(name) => name,
+                    _ => panic!("invalid arg {:?}",token)
+                },
+
+                None => break
+            };
+            idents.push(name.clone());
+
+            match ident_iter.next() {
+                Some(token) => match token {
+                    Token::Comma => {},
+                    _ => panic!("expected comma, got {:?}",token)
+                },
+
+                None => break
+            }
+        }
+        idents
+    }
 }

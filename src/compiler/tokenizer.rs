@@ -5,7 +5,8 @@ pub enum Token {
     Invalid,
 
     Local,Function,Return,
-    If,Elif,Else,While,For,
+    If,Elif,Else,
+    While,For,IPairs,KVPairs,Range,In,
     Break,
     Endline,
 
@@ -83,10 +84,18 @@ fn parse_rec(tokens:&mut Vec<Token>,bytes:&mut Peekable<Bytes>) -> Result<()> {
             match name.as_str() {
                 "local"    => Token::Local,
                 "function" => Token::Function,
+
                 "if"       => Token::If,
                 "elif"     => Token::Elif,
                 "else"     => Token::Else,
                 "while"    => Token::While,
+                "for"      => Token::For,
+                "ipairs"   => Token::IPairs,
+                "kvpairs"  => Token::KVPairs,
+                "range"    => Token::Range,
+                "in"       => Token::In,
+                "break"    => Token::Break,
+                "return"   => Token::Return,
 
                 "and"      => Token::BoolAnd,
                 "or"       => Token::BoolOr,

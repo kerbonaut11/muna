@@ -120,7 +120,7 @@ impl Expr {
 
 
 fn parse_rec(tokens:&[Token]) -> Result<Expr> {
-
+    println!("{:?}",tokens);
     if tokens.len() == 1 {
         return Ok(match &tokens[0] {
             Token::Nil => Expr::NilLiteral,
