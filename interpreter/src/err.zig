@@ -3,9 +3,8 @@ const Var = @import("var.zig").Var;
 
 pub const ErrorEnum = error {
     halt,
-    run,
+    panic,
     todo,
-    comp,
 };
 
 const RunErrType = enum {

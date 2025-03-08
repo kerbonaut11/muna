@@ -18,7 +18,7 @@ pub fn add(lhs:Var,rhs:Var) !Var {
                 .lhs = lhs.tag(),
                 .rhs = rhs.tag()
             }};
-            return error.run;
+            return error.panic;
         },
     };
 }
@@ -35,7 +35,7 @@ pub fn sub(lhs:Var,rhs:Var) !Var {
                 .lhs = lhs.tag(),
                 .rhs = rhs.tag()
             }};
-            return error.run;
+            return error.panic;
         },
     };
 }
@@ -52,7 +52,7 @@ pub fn mul(lhs:Var,rhs:Var) !Var {
                 .lhs = lhs.tag(),
                 .rhs = rhs.tag()
             }};
-            return error.run;
+            return error.panic;
         },
     };
 }
@@ -69,7 +69,7 @@ pub fn div(lhs:Var,rhs:Var) !Var {
                 .lhs = lhs.tag(),
                 .rhs = rhs.tag()
             }};
-            return error.run;
+            return error.panic;
         },
     };
 }
@@ -86,7 +86,7 @@ pub fn pow(lhs:Var,rhs:Var) !Var {
                 .lhs = lhs.tag(),
                 .rhs = rhs.tag()
             }};
-            return error.run;
+            return error.panic;
         },
     };
 }
@@ -103,7 +103,7 @@ pub fn mod(lhs:Var,rhs:Var) !Var {
                 .lhs = lhs.tag(),
                 .rhs = rhs.tag()
             }};
-            return error.run;
+            return error.panic;
         },
     };
 }

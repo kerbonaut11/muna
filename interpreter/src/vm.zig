@@ -34,6 +34,7 @@ pub const Vm = struct {
 
     pub fn exec(self:*Self) !void {
         const instr = self.program.next(ByteCode);
+
         try @import("exec.zig").exec(instr, self);
     }
 

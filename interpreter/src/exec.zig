@@ -1,3 +1,4 @@
+const std = @import("std");
 const Var = @import("var.zig").Var;
 const Vm = @import("vm.zig").Vm;
 const ByteCode = @import("bytecode.zig").ByteCode;
@@ -20,6 +21,8 @@ pub fn exec(instr:ByteCode,vm: *Vm) !void {
         .div => try vm.binaryOp(ops.div),
         .pow => try vm.binaryOp(ops.pow),
         .mod => try vm.binaryOp(ops.mod),
+
+        .halt => return error.halt,
 
         else => return error.todo,
     }

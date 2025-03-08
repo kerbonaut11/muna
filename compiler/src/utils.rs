@@ -1,4 +1,4 @@
-use super::tokenizer::Token;
+use crate::tokenizer::Token;
 
 impl Token {
     pub fn find(tokens:&[Token],target:&Token) -> Option<usize> {

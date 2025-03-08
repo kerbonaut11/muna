@@ -14,8 +14,8 @@ pub enum Token {
 
     Nil,
     BoolLiteral(bool),
-    IntLiteral(i64),
-    FloatLiteral(f64),
+    IntLiteral(i32),
+    FloatLiteral(f32),
     StrLiteral(Box<str>),
 
     Assing,
@@ -196,13 +196,13 @@ fn parse_num(first:u8,bytes:&mut Peekable<Bytes>) -> Result<Token> {
 }
 
 fn parse_hex(bytes:&mut Peekable<Bytes>) -> Result<Token> {
-    let mut x = 0i64;
+    let mut x = 0i32;
     loop {
         let byte = *bytes.peek().ok_or(TokenizerErr::EarlyEOF)?;
         match byte {
-            b'0'..=b'9' => x = (x << 0xF) | (byte-b'0')as i64,
-            b'a'..=b'f' => x = (x << 0xF) | (byte-b'a')as i64,
-            b'A'..=b'F' => x = (x << 0xF) | (byte-b'A')as i64,
+            b'0'..=b'9' => x = (x << 0xF) | (byte-b'0')as i32,
+            b'a'..=b'f' => x = (x << 0xF) | (byte-b'a')as i32,
+            b'A'..=b'F' => x = (x << 0xF) | (byte-b'A')as i32,
             _ => return Ok(Token::IntLiteral(x)),
         }
         let _ = bytes.next();
@@ -210,7 +210,7 @@ fn parse_hex(bytes:&mut Peekable<Bytes>) -> Result<Token> {
 }
 
 fn parse_binary(bytes:&mut Peekable<Bytes>) -> Result<Token> {
-    let mut x = 0i64;
+    let mut x = 0i32;
     loop {
         let byte = *bytes.peek().ok_or(TokenizerErr::EarlyEOF)?;
         match byte {
@@ -223,11 +223,11 @@ fn parse_binary(bytes:&mut Peekable<Bytes>) -> Result<Token> {
 }
 
 fn parse_int(first:u8,bytes:&mut Peekable<Bytes>) -> Result<Token> {
-    let mut x = (first-b'0') as i64;
+    let mut x = (first-b'0') as i32;
     loop {
         let byte = *bytes.peek().ok_or(TokenizerErr::EarlyEOF)?;
         match byte {
-            b'0'..=b'9' => x = (x*10) + (byte-b'0') as i64, 
+            b'0'..=b'9' => x = (x*10) + (byte-b'0') as i32, 
             b'.' => {
                 let _ = bytes.next();
                 return parse_float_decimal(x, bytes);
@@ -238,14 +238,14 @@ fn parse_int(first:u8,bytes:&mut Peekable<Bytes>) -> Result<Token> {
     }
 }
 
-fn parse_float_decimal(whole:i64,bytes:&mut Peekable<Bytes>) -> Result<Token> {
-    let mut x = whole as f64;
+fn parse_float_decimal(whole:i32,bytes:&mut Peekable<Bytes>) -> Result<Token> {
+    let mut x = whole as f32;
     let mut pow = 0.1;
     loop {
         let byte = *bytes.peek().ok_or(TokenizerErr::EarlyEOF)?;
         match byte {
             b'0'..b'9' => {
-                x += (byte-b'0') as f64 * pow;
+                x += (byte-b'0') as f32 * pow;
                 pow *= 0.1;
             }, 
             _ => return Ok(Token::FloatLiteral(x)),

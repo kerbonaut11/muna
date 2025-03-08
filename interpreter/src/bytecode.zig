@@ -1,5 +1,6 @@
 const std = @import("std");
 const Vm = @import("vm.zig").Vm;
+const Var = @import("var.zig").Var;
 
 pub const ByteCodeType = enum(u8) {
     load_nil,
@@ -19,6 +20,7 @@ pub const ByteCodeType = enum(u8) {
     pow,
     mod,
     concat,
+    halt,
 };
 
 pub const ByteCode = union(ByteCodeType) {
@@ -41,6 +43,8 @@ pub const ByteCode = union(ByteCodeType) {
     pow:void,
     mod:void,
     concat:void,
+
+    halt:void,
 
     pub fn asInt(self:*const ByteCode) u32 {
         const ptr:*const u32 = @ptrCast(@alignCast(self));
@@ -142,11 +146,16 @@ pub const Program = struct {
 };
 
 
-test "read file" {
-    var p  = try Program.loadFromFile("src/err.zig");
+test "compat" {
+    var p = try Program.loadFromFile("test.out");
     p.start();
-    //const bytes:[]u8 = @ptrCast(p.list.items);
-    //std.debug.print("{s}", .{bytes});
-    try std.testing.expectEqual('c', p.next(u8));
-    p.deinit();
+    var vm = Vm.init(p);
+    try vm.exec();
+    try vm.exec();
+    try vm.exec();
+    try vm.exec();
+    try vm.exec();
+    try vm.exec();
+    try vm.exec();
+    try std.testing.expectEqual(20.1, vm.pop().as(f32));
 }

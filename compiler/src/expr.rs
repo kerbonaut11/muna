@@ -1,15 +1,43 @@
 use std::{u32, usize};
 
-use crate::{compiler::ast_gen, ops::{Op, UnaryOp}};
+use crate::{ast_gen::{self,Block}, err::Result, tokenizer::Token, LocalId};
 
-use super::{ast_gen::Block, err::Result, tokenizer::Token, LocalId};
+#[derive(Debug,Clone, Copy)]
+pub enum Op {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    IDiv,
+    Pow,
+    Mod,
+    And,
+    Or,
+    Xor,
+    Less,
+    LessEq,
+    Eq,
+    NotEq,
+    Greater,
+    GreaterEq,
+    BoolAnd,
+    BoolOr,
+}
+
+#[derive(Debug,Clone, Copy)]
+pub enum UnaryOp {
+    Neg,
+    Not,
+    BoolNot,
+    Len,
+}
 
 #[derive(Clone)]
 pub enum Expr {
     NilLiteral,
     BoolLiteral(bool),
-    IntLiteral(i64),
-    FloatLiteral(f64),
+    IntLiteral(i32),
+    FloatLiteral(f32),
     StrLiteral(Box<str>),
     TableLiteral(TableLiteral),
     Function(InlineFunction),
@@ -30,8 +58,8 @@ pub enum Expr {
 #[derive(Clone)]
 pub enum TableLiteralIdx {
     BoolLiteral(bool),
-    IntLiteral(i64),
-    FloatLiteral(f64),
+    IntLiteral(i32),
+    FloatLiteral(f32),
     StrLiteral(Box<str>), 
 }
 
@@ -266,7 +294,7 @@ fn parse_table_literal(tokens:&[Token]) -> Result<TableLiteral> {
     parse_table_literal_rec(tokens, &mut 0)
 }
 
-fn parse_table_literal_rec(tokens:&[Token],idx:&mut i64) -> Result<TableLiteral> {
+fn parse_table_literal_rec(tokens:&[Token],idx:&mut i32) -> Result<TableLiteral> {
     if tokens.is_empty() {
         return Ok(vec![]);
     }
@@ -281,7 +309,7 @@ fn parse_table_literal_rec(tokens:&[Token],idx:&mut i64) -> Result<TableLiteral>
     }
 }
 
-fn parse_table_literal_element(tokens:&[Token],idx:&mut i64) -> Result<(TableLiteralIdx,Expr)> {
+fn parse_table_literal_element(tokens:&[Token],idx:&mut i32) -> Result<(TableLiteralIdx,Expr)> {
     let has_equal = if tokens.len() > 2 {
         tokens[1] == Token::Assing
     } else {

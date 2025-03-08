@@ -1,4 +1,4 @@
-use super::{expr::Expr, tokenizer::Token, err::Result};
+use crate::{expr::Expr, tokenizer::Token, err::Result};
 
 pub type Block = Vec<AstNode>;
 
