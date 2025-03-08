@@ -1,2 +1,4 @@
-/target
-/macros/target
+compiler/target
+compiler/macros/target
+interpreter/.zig-cache
+interpreter/zig-out

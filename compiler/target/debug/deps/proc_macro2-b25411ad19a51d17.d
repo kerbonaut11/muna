@@ -1,0 +1,12 @@
+/home/tobias/Desktop/rust/muna/target/debug/deps/libproc_macro2-b25411ad19a51d17.rmeta: /home/tobias/.cargo/registry/src/index.crates.io-6f17d22bba15001f/proc-macro2-1.0.93/src/lib.rs /home/tobias/.cargo/registry/src/index.crates.io-6f17d22bba15001f/proc-macro2-1.0.93/src/marker.rs /home/tobias/.cargo/registry/src/index.crates.io-6f17d22bba15001f/proc-macro2-1.0.93/src/parse.rs /home/tobias/.cargo/registry/src/index.crates.io-6f17d22bba15001f/proc-macro2-1.0.93/src/rcvec.rs /home/tobias/.cargo/registry/src/index.crates.io-6f17d22bba15001f/proc-macro2-1.0.93/src/detection.rs /home/tobias/.cargo/registry/src/index.crates.io-6f17d22bba15001f/proc-macro2-1.0.93/src/fallback.rs /home/tobias/.cargo/registry/src/index.crates.io-6f17d22bba15001f/proc-macro2-1.0.93/src/extra.rs /home/tobias/.cargo/registry/src/index.crates.io-6f17d22bba15001f/proc-macro2-1.0.93/src/wrapper.rs
+
+/home/tobias/Desktop/rust/muna/target/debug/deps/proc_macro2-b25411ad19a51d17.d: /home/tobias/.cargo/registry/src/index.crates.io-6f17d22bba15001f/proc-macro2-1.0.93/src/lib.rs /home/tobias/.cargo/registry/src/index.crates.io-6f17d22bba15001f/proc-macro2-1.0.93/src/marker.rs /home/tobias/.cargo/registry/src/index.crates.io-6f17d22bba15001f/proc-macro2-1.0.93/src/parse.rs /home/tobias/.cargo/registry/src/index.crates.io-6f17d22bba15001f/proc-macro2-1.0.93/src/rcvec.rs /home/tobias/.cargo/registry/src/index.crates.io-6f17d22bba15001f/proc-macro2-1.0.93/src/detection.rs /home/tobias/.cargo/registry/src/index.crates.io-6f17d22bba15001f/proc-macro2-1.0.93/src/fallback.rs /home/tobias/.cargo/registry/src/index.crates.io-6f17d22bba15001f/proc-macro2-1.0.93/src/extra.rs /home/tobias/.cargo/registry/src/index.crates.io-6f17d22bba15001f/proc-macro2-1.0.93/src/wrapper.rs
+
+/home/tobias/.cargo/registry/src/index.crates.io-6f17d22bba15001f/proc-macro2-1.0.93/src/lib.rs:
+/home/tobias/.cargo/registry/src/index.crates.io-6f17d22bba15001f/proc-macro2-1.0.93/src/marker.rs:
+/home/tobias/.cargo/registry/src/index.crates.io-6f17d22bba15001f/proc-macro2-1.0.93/src/parse.rs:
+/home/tobias/.cargo/registry/src/index.crates.io-6f17d22bba15001f/proc-macro2-1.0.93/src/rcvec.rs:
+/home/tobias/.cargo/registry/src/index.crates.io-6f17d22bba15001f/proc-macro2-1.0.93/src/detection.rs:
+/home/tobias/.cargo/registry/src/index.crates.io-6f17d22bba15001f/proc-macro2-1.0.93/src/fallback.rs:
+/home/tobias/.cargo/registry/src/index.crates.io-6f17d22bba15001f/proc-macro2-1.0.93/src/extra.rs:
+/home/tobias/.cargo/registry/src/index.crates.io-6f17d22bba15001f/proc-macro2-1.0.93/src/wrapper.rs:
