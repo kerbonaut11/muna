@@ -1,7 +1,7 @@
 const std = @import("std");
 const Var = @import("var.zig").Var;
 
-pub const ErrorEnum = error {
+pub const ReturnCode = error {
     halt,
     panic,
     todo,

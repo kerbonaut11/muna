@@ -4,13 +4,13 @@ const Str = @import("str.zig").Str;
 pub const VarType = enum(u3) {
     nil,
     bool,
-    char,
     int,
     float,
 
     str,
     table,
-    //zig,
+    func,
+    zig,
 };
 
 pub const Var = struct {
@@ -81,11 +81,11 @@ pub const Var = struct {
 
 test "Val" {
     const val1 = Var.from(0xffaa);
-    try std.testing.expectEqual(0xffaa00000003, val1.bits);
+    try std.testing.expectEqual(0xffaa00000000|@as(u64,@intFromEnum(VarType.int)), val1.bits);
     try std.testing.expectEqual(0xffaa, val1.as(i32));
     try std.testing.expectEqual(.int, val1.tag());
 
     const ptr: *void = @ptrFromInt(0xffff0);
     const val2 = Var.fromTypeAndPtr(.table, ptr);
-    try std.testing.expectEqual(0xffff6, val2.bits);
+    try std.testing.expectEqual(0xffff0|@as(u64,@intFromEnum(VarType.table)), val2.bits);
 }

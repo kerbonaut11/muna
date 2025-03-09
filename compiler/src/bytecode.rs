@@ -1,22 +1,28 @@
+#[derive(Debug)]
+#[repr(u8)]
 pub enum ByteCode {
 
-    LoadNil,
-    LoadTrue,
-    LoadFalse,
-    LoadInt,
-    LoadFloat,
+    LoadNil         = 0,
+    LoadTrue        = 1,
+    LoadFalse       = 2,
+    LoadInt         = 3,
+    LoadFloat       = 4,
+    LoadToNameTable = 5,
+    LoadStr         = 6,
 
-    Load(u16),
-    Write(u16),
+    Load(u16)  = 7,
+    Write(u16) = 8,
 
-    Add,
-    Sub,
-    Mul,
-    Div,
-    IDiv,
-    Pow,
-    Mod,
-    Concat,
+    Add    =  9,
+    Sub    = 10,
+    Mul    = 11,
+    Div    = 12,
+    IDiv   = 13,
+    Pow    = 14,
+    Mod    = 15,
+    Concat = 16,
+
+    Halt = 17,
 }
 
 

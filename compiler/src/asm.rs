@@ -32,18 +32,40 @@ impl Assembler {
            x 
         });
     }
-}
 
-pub fn create_test_file() {
-    let mut asm = Assembler::new();
-    asm.encode_instr(ByteCode::LoadTrue);
-    asm.encode_instr(ByteCode::LoadInt);
-    asm.encode_int(20);
-    asm.encode_instr(ByteCode::LoadFalse);
-    asm.encode_instr(ByteCode::LoadNil);
-    asm.encode_instr(ByteCode::LoadFloat);
-    asm.encode_float(0.1);
-    asm.encode_instr(ByteCode::Load(1));
-    asm.encode_instr(ByteCode::Add);
-    asm.write_to_file("../test.out");
+    pub fn print(&self) {
+        let mut i = 0;
+        loop {
+            if i == self.0.len() {
+                return;
+            }
+
+            let instr:ByteCode = unsafe {
+                let array_in:[u8;4] = std::mem::transmute(self.0[i]);
+                let array_out = [array_in[2],array_in[3],array_in[0],array_in[1]]; 
+                std::mem::transmute(array_out)
+            };
+            print!("{:?}",instr);
+
+            match instr {
+                ByteCode::LoadInt => {
+                    i += 1;
+                    let x:i32 = unsafe{std::mem::transmute(self.0[i])};
+                    print!("({})",x);
+                }
+
+                ByteCode::LoadFloat => {
+                    i += 1;
+                    let x:f32 = unsafe{std::mem::transmute(self.0[i])};
+                    print!("({})",x);
+                }
+
+                _ => {}
+            }
+
+            println!("");
+
+            i += 1;
+        }
+    }
 }

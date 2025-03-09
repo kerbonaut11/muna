@@ -1,6 +1,6 @@
 use std::{u32, usize};
 
-use crate::{ast_gen::{self,Block}, err::Result, tokenizer::Token, LocalId};
+use crate::{ast_gen::{self,Block}, err::Result, tokenizer::Token};
 
 #[derive(Debug,Clone, Copy)]
 pub enum Op {
@@ -50,9 +50,6 @@ pub enum Expr {
     Index{table:Box<Self>,idx:Box<Self>},
     Call{function:Box<Self>,args:Vec<Self>},
     MethodCall{table:Box<Self>,name:Box<str>,args:Vec<Self>},
-
-    Global(Box<str>),
-    Local(LocalId),
 }
 
 #[derive(Clone)]
@@ -83,8 +80,6 @@ impl Expr {
         }
         match self {
             Expr::Ident(name) => print!("var({})\n",name),
-            Expr::Local(id)      => print!("local({})\n",id),
-            Expr::Global(name)  => print!("global({})\n",name),
 
             Expr::NilLiteral               => print!("nil\n"),
             Expr::BoolLiteral(x)    => print!("bool({:?})\n",x),
@@ -156,7 +151,7 @@ impl Expr {
 
 
 fn parse_rec(tokens:&[Token]) -> Result<Expr> {
-    println!("{:?}",tokens);
+    //println!("{:?}",tokens);
     if tokens.len() == 1 {
         return Ok(match &tokens[0] {
             Token::Nil => Expr::NilLiteral,

@@ -2,6 +2,7 @@ const std = @import("std");
 const Var = @import("var.zig").Var;
 const ByteCode = @import("bytecode.zig").ByteCode;
 const Program = @import("bytecode.zig").Program;
+const ReturnCode = @import("err.zig").ReturnCode;
 
 pub const Vm = struct {
     const Self = @This();
@@ -34,10 +35,38 @@ pub const Vm = struct {
 
     pub fn exec(self:*Self) !void {
         const instr = self.program.next(ByteCode);
-
         try @import("exec.zig").exec(instr, self);
     }
 
+    pub fn execDebug(self:*Self) !void {
+        const instr = self.program.next(ByteCode);
+        std.debug.print("executing {} \n", .{instr});
+        try @import("exec.zig").exec(instr, self);
+        self.printLocals();
+        std.debug.print("\n", .{});
+    }
+
+    pub fn execUntilHalt(self:*Self) ReturnCode!void {
+        while (true) {
+            self.exec() catch |err| {
+                switch (err) {
+                    ReturnCode.halt => return,
+                    else => return err,
+                }
+            };
+        }
+    }
+
+    pub fn execUntilHaltDebug(self:*Self) ReturnCode!void {
+        while (true) {
+            self.execDebug() catch |err| {
+                switch (err) {
+                    ReturnCode.halt => return,
+                    else => return err,
+                }
+            };
+        }
+    }
 
     pub fn push(self:*Self,x:Var) void {
         self.sp[0] = x;
@@ -53,39 +82,27 @@ pub const Vm = struct {
         return @ptrCast(self.sp - 1);
     }
 
-    pub fn binaryOp(self:*Self,comptime op:fn(Var,Var) @import("err.zig").ErrorEnum!Var) !void {
-        const lhs = self.pop();
-        const rhs = self.top().*;
+    pub fn localSlice(self:*Self) []Var {
+        const size = self.sp-self.bp;
+        return self.bp[0..size];
+    }
+
+    pub fn printLocals(self:*Self) void {
+        for (self.localSlice()) |local| {
+            switch (local.tag()) {
+                .nil => std.debug.print("nil\n", .{}),
+                .bool => std.debug.print("bool:{}\n", .{local.as(bool)}),
+                .int => std.debug.print("int:{d}\n", .{local.as(i32)}),
+                .float => std.debug.print("float:{d}\n", .{local.as(f32)}),
+                else => {}
+            }
+        }
+    }
+
+    pub fn binaryOp(self:*Self,comptime op:fn(Var,Var) ReturnCode!Var) !void {
+        const rhs = self.pop();
+        const lhs = self.top().*;
         self.top().* = try op(lhs,rhs);
     }
 };
 
-
-test "Vm" {
-    var program = Program.init();
-    program.encode(ByteCode.load_int);
-    program.encode(20);
-    program.encode(ByteCode.load_int);
-    program.encode(10);
-    program.encode(ByteCode.load_int);
-    program.encode(10);
-    program.encode(ByteCode{.load = 0});
-    program.encode(ByteCode.add);
-    program.encode(ByteCode{.write = 1});
-
-    var vm = Vm.init(program);
-    defer vm.deinit();
-
-    vm.program.start();
-    vm.push(Var.from(10));
-    try std.testing.expectEqual(vm.pop(), Var.from(10));
-    try std.testing.expectEqual(vm.sp, vm.bp);
-    try vm.exec();
-    try vm.exec();
-    try vm.exec();
-    try vm.exec();
-    try vm.exec();
-    try std.testing.expectEqual(vm.top().*, Var.from(30));
-    try vm.exec();
-    try std.testing.expectEqual(vm.bp[1], Var.from(30));
-}

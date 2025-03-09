@@ -1,112 +1,113 @@
 use std::{collections::HashMap, num::NonZeroU32, sync::Mutex};
 
-use crate::{ast_gen::{Assing, AstNode, Block, Declaration, ForStatement, Function, IfElseStatement}, expr::{self, Expr, InlineFunction}, LocalId};
+use crate::{asm::Assembler, ast_gen::{Assing, AstNode, Block, Declaration, ForStatement, Function, IfElseStatement}, expr::{self, Expr, InlineFunction, Op, UnaryOp}, bytecode::ByteCode};
 
-pub struct FunctionCtx<'a> {
-    is_inline:bool,
-    pub prev:Option<&'a Self>,
-    pub sub_funcs:Vec<Self>,
 
-    args:Vec<Local>,
+pub struct FuncCtx {
     scope_depth:u32,
-    local_next_id:u32,
-    locals:Vec<Local>,
+    locals:Vec<(Box<str>,u32)>
 }
 
-struct Local {
-    scope_depth:LocalId,
-    id:u32,
-    name:Box<str>
-}
-
-impl<'a> FunctionCtx<'a> {
-    fn new(args:&[Box<str>],is_inline:bool) -> Self {
-        let mut ctx = Self{
-            is_inline,
-            prev:None,
-            sub_funcs:vec![],
-
-            args:vec![],
+impl FuncCtx {
+    pub fn new() -> Self {
+        Self { 
             scope_depth:0,
-            local_next_id:args.len() as u32,
-            locals:vec![],
-        };
-
-        for arg in args {
-            ctx.args.push(Local{
-                scope_depth: 0,
-                id: ctx.args.len() as u32,
-                name: arg.clone().into(),
-            });
+            locals: vec![] 
         }
-
-        ctx
-    }
-}
-
-impl<'a> From<&InlineFunction> for FunctionCtx<'a> {
-    fn from(value: &InlineFunction) -> Self {
-        Self::new(&value.args,true)
-    }
-}
-
-impl<'a> From<&Function> for FunctionCtx<'a> {
-    fn from(value: &Function) -> Self {
-        Self::new(&value.args,false)
-    }
-}
-
-
-
-impl<'a> FunctionCtx<'a> {
-    fn add_local(&mut self,name:&str) {
-        self.locals.push(Local{
-            scope_depth:self.scope_depth,
-            id:self.local_next_id,
-            name:name.into(),
-        });
-        self.local_next_id += 1;
     }
 
-    fn get_local_id(&self,name:&str) -> Option<LocalId> {
-        if let Some(local) = self.args.iter().find(|x| x.name == name.into() ) {
-            return Some(local.id);
-        } 
-        if let Some(local) = self.locals.iter().rev().find(|x| x.name == name.into() ) {
-            return Some(local.id);
-        };
-
-        return None;
+    pub fn add_local(&mut self,name:&str) {
+        let id = self.locals.len();
+        self.locals.push((name.into(),self.scope_depth));
     }
 
-    fn up_scope(&mut self) {
+    pub fn get_local_id(&self,name:&str) -> Option<u16> {
+        self.locals.iter().enumerate().rev()
+            .find(|(i,x)| *x.0 == *name)
+            .map(|(i,_)| i as u16)
+    }
+
+    pub fn up_scope(&mut self) {
         self.scope_depth += 1;
     }
 
-    fn down_scope(&mut self) {
-        while let Some(local) = self.locals.last() {
-            if local.scope_depth != self.scope_depth {
+    pub fn down_scope(&mut self) {
+        loop {
+            if self.locals.last().unwrap().1 != self.scope_depth {
                 break;
             }
-            self.locals.pop();
-            self.local_next_id -= 1;
+            _ = self.locals.pop();
         }
-
         self.scope_depth -= 1;
     }
 
-    fn get_expr_of_ident(&self,name:&str) -> Expr {
-        if let Some(id) = self.get_local_id(name) {
-            return Expr::Local(id);
-        }
+    pub fn compile(&mut self,asm:&mut Assembler,block:&[AstNode]) {
+        for node in block { match node {
+            AstNode::Declaration(Declaration { lhs, rhs }) => {
+                lhs.iter().for_each(|x| self.add_local(x));
+                rhs.iter().for_each(|x| x.compile(self, asm));
+            }
 
-        return Expr::Global(name.into());
+            AstNode::Assing(Assing { lhs, rhs }) => {
+                for expr in rhs {
+                    expr.compile(self, asm);
+                }
+
+                for lhs in lhs.iter().rev() {
+                    match lhs {
+                        Expr::Ident(name) => {
+                            match self.get_local_id(&name) {
+                                Some(id) => asm.encode_instr(ByteCode::Write(id)),
+                                None => todo!(),
+                            }
+                        }
+                        _ => unreachable!(),
+                    }
+                }
+            }
+            _ => todo!(),
+        }};
     }
+}
+
+impl Expr {
+    pub fn compile(&self,ctx:&mut FuncCtx,asm:&mut Assembler) {
+        match self {
+            Expr::Ident(name) => {
+                match ctx.get_local_id(&name) {
+                    Some(id) => asm.encode_instr(ByteCode::Load(id)),
+                    None => todo!(),
+                }
+            },
+
+            Expr::NilLiteral => asm.encode_instr(ByteCode::LoadNil),
+            Expr::BoolLiteral(x) => asm.encode_instr(if *x {ByteCode::LoadTrue} else {ByteCode::LoadFalse}),
+            Expr::IntLiteral(x) => {
+                asm.encode_instr(ByteCode::LoadInt);
+                asm.encode_int(*x);
+            }
+            Expr::FloatLiteral(x) => {
+                asm.encode_instr(ByteCode::LoadFloat);
+                asm.encode_float(*x);
+            }
+
+            Expr::Binary { op, lhs, rhs } => {
+                lhs.compile(ctx, asm);
+                rhs.compile(ctx, asm);
+                asm.encode_instr(match op {
+                    Op::Add => ByteCode::Add,
+                    Op::Sub => ByteCode::Sub,
+                    Op::Mul => ByteCode::Mul,
+                    Op::Div => ByteCode::Div,
+                    Op::IDiv => ByteCode::IDiv,
+                    Op::Pow => ByteCode::Pow,
+                    Op::Mod => ByteCode::Mod,
+                    _ => todo!()
+                });
+            }
 
 
-    pub fn compile(&mut self,block:Block,ir:&mut Vec<((),Option<LableId>)>) {
-        if block.is_empty() {
-            return;
+            _ => todo!()
         }
     }
 }

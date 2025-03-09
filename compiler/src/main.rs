@@ -8,12 +8,12 @@ mod err;
 mod compiler;
 mod bytecode;
 mod asm;
+mod tests;
 
-pub type LocalId = u32;
 pub use crate::err::{Error,Result};
 
 fn main() {
-    asm::create_test_file();
+    
 }
 
 
