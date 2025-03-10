@@ -1,6 +1,7 @@
 const std = @import("std");
 const Vm = @import("vm.zig").Vm;
 const Var = @import("var.zig").Var;
+const Str = @import("str.zig").Str;
 
 pub const ByteCodeType = enum(u8) {
     load_nil           = 0,
@@ -67,23 +68,51 @@ pub const Program = struct {
     const Self = @This();
     const max_names = std.math.maxInt(u16);
 
-    bytes:std.ArrayListAligned(u8,4),
+    list:std.ArrayList(u32),
     ip:[*]u32,
     name_table:[]Var,
 
     pub fn init(path:[]const u8) !Self {
         const file = try std.fs.cwd().openFile(path, .{});
         defer file.close();
+        const reader = file.reader();
 
-        var bytes = std.ArrayListAligned(u8,4).init(Vm.gpa);
-        try file.reader().readAllArrayListAligned(4,&bytes, std.math.maxInt(usize));
-        
-        
+        const name_table = loadNameTable(reader);
+        const list = loadByteCode(reader);
 
         return .{
-           .bytes= bytes,
-           .ip = @ptrCast(bytes.items.ptr),
-           .name_table = Vm.page_a.alloc(Var, max_names) catch unreachable
+           .list = list,
+           .ip = @ptrCast(list.items.ptr),
+           .name_table = name_table
+        };
+    }
+
+    pub fn loadNameTable(reader:anytype) []Var {
+        const name_count = reader.readInt(u16, .little)  catch unreachable;
+        std.debug.print("names:{}\n", .{name_count});
+        var name_table = Vm.page_a.alloc(Var, max_names) catch unreachable;
+        var buffer:[std.math.maxInt(u16)]u8 = undefined;
+
+        for (0..name_count) |i| {
+            const slice = reader.readUntilDelimiter(buffer[0..], 0) catch unreachable;
+            std.debug.print("name:{c}\n", .{slice});
+            const str = Str.init(slice);
+            name_table[i] = Var.from(str);
+        }
+
+        return name_table;
+    }
+
+    pub fn loadByteCode(reader:anytype) std.ArrayList(u32) {
+        var bytes = std.ArrayListAligned(u8, 4).init(Vm.gpa);
+        reader.readAllArrayListAligned(4, &bytes, std.math.maxInt(usize)) catch unreachable;
+
+        std.debug.print("{X}", .{bytes.items});
+
+        return .{
+            .items = @ptrCast(bytes.items),
+            .capacity = bytes.capacity/4,
+            .allocator = Vm.gpa,
         };
     }
 

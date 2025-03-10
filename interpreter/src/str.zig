@@ -52,8 +52,12 @@ pub const Str = struct {
         return self.ptr.hash;
     }
 
-    pub fn getLen(self:*const Self) u32 {
+    pub fn getLen(self: Self) u32 {
         return self.ptr.len;
+    }
+
+    pub fn getHeapSize(self:Self) usize {
+        return self.getLen()+header_size;
     }
 };
 

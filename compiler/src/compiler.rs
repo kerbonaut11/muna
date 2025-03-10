@@ -90,6 +90,10 @@ impl Expr {
                 asm.encode_instr(ByteCode::LoadFloat);
                 asm.encode_float(*x);
             }
+            Expr::StrLiteral(x) => {
+                let idx = asm.get_idx_of_name(&x);
+                asm.encode_instr(ByteCode::LoadStr(idx));
+            } 
 
             Expr::Binary { op, lhs, rhs } => {
                 lhs.compile(ctx, asm);

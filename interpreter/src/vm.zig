@@ -2,6 +2,7 @@ const std = @import("std");
 const Var = @import("var.zig").Var;
 const ByteCode = @import("bytecode.zig").ByteCode;
 const Program = @import("bytecode.zig").Program;
+const Str = @import("str.zig").Str;
 const ReturnCode = @import("err.zig").ReturnCode;
 
 pub const Vm = struct {
@@ -94,6 +95,7 @@ pub const Vm = struct {
                 .bool => std.debug.print("bool:{}\n", .{local.as(bool)}),
                 .int => std.debug.print("int:{d}\n", .{local.as(i32)}),
                 .float => std.debug.print("float:{d}\n", .{local.as(f32)}),
+                .str => std.debug.print("str:{s}\n", .{local.as(Str).asSlice()}),
                 else => {}
             }
         }

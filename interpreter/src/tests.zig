@@ -1,6 +1,7 @@
 const std = @import("std");
 const Vm = @import("vm.zig").Vm;
 const Program = @import("bytecode.zig").Program;
+const Str = @import("str.zig").Str;
 
 test "compat" {
     const p = try Program.init("tests/compat.out");
@@ -21,6 +22,7 @@ test "assing/declaration" {
     const p = try Program.init("tests/assing_dec.out");
     var vm = Vm.init(p);
     try vm.execUntilHaltDebug();
+    try std.testing.expectEqualDeep("hello", vm.pop().as(Str).asSlice());
     try std.testing.expectEqual(10, vm.pop().as(i32));
     try std.testing.expectEqual(11.0*12.1, vm.pop().as(f32));
 }

@@ -2,13 +2,12 @@
 #[repr(u8)]
 pub enum ByteCode {
 
-    LoadNil         = 0,
-    LoadTrue        = 1,
-    LoadFalse       = 2,
-    LoadInt         = 3,
-    LoadFloat       = 4,
-    LoadToNameTable = 5,
-    LoadStr         = 6,
+    LoadNil              = 0,
+    LoadTrue             = 1,
+    LoadFalse            = 2,
+    LoadInt              = 3,
+    LoadFloat            = 4,
+    LoadStr(u16)         = 6,
 
     Load(u16)  = 7,
     Write(u16) = 8,

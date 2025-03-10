@@ -29,7 +29,7 @@ pub fn expr_test_file() {
 #[test]
 pub fn assing_declaration_test_file() {
     let mut asm = Assembler::new();
-    let tokens = &tokenizer::parse("local x,y = 10,12.1 x,y = (x+1)*y,x").unwrap();
+    let tokens = &tokenizer::parse("local x,y,z = 10,12.1,\"hello\" x,y = (x+1)*y,x").unwrap();
     let block = ast_gen::parse_block(&tokens).unwrap();
     FuncCtx::new().compile(&mut asm, &block);
     asm.print();
