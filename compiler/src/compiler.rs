@@ -106,6 +106,7 @@ impl Expr {
                     Op::IDiv => ByteCode::IDiv,
                     Op::Pow => ByteCode::Pow,
                     Op::Mod => ByteCode::Mod,
+                    Op::Concat => ByteCode::Concat,
                     _ => todo!()
                 });
             }

@@ -81,22 +81,21 @@ pub const Program = struct {
         const list = loadByteCode(reader);
 
         return .{
+           .name_table = name_table,
            .list = list,
            .ip = @ptrCast(list.items.ptr),
-           .name_table = name_table
         };
     }
 
     pub fn loadNameTable(reader:anytype) []Var {
         const name_count = reader.readInt(u16, .little)  catch unreachable;
-        std.debug.print("names:{}\n", .{name_count});
-        var name_table = Vm.page_a.alloc(Var, max_names) catch unreachable;
+        var name_table = Vm.gpa.alloc(Var, max_names) catch unreachable;
         var buffer:[std.math.maxInt(u16)]u8 = undefined;
 
         for (0..name_count) |i| {
             const slice = reader.readUntilDelimiter(buffer[0..], 0) catch unreachable;
-            std.debug.print("name:{c}\n", .{slice});
             const str = Str.init(slice);
+            std.debug.print("name {}:{c} \n", .{i,str.asSlice()});
             name_table[i] = Var.from(str);
         }
 
@@ -107,8 +106,6 @@ pub const Program = struct {
         var bytes = std.ArrayListAligned(u8, 4).init(Vm.gpa);
         reader.readAllArrayListAligned(4, &bytes, std.math.maxInt(usize)) catch unreachable;
 
-        std.debug.print("{X}", .{bytes.items});
-
         return .{
             .items = @ptrCast(bytes.items),
             .capacity = bytes.capacity/4,
@@ -117,7 +114,7 @@ pub const Program = struct {
     }
 
     pub fn deinit(self:*Self) void {
-        self.bytes.deinit();
+        self.list.deinit();
         Vm.page_a.free(self.name_table);
     }
 

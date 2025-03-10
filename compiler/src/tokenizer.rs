@@ -20,7 +20,7 @@ pub enum Token {
 
     Assing,
 
-    Add,Sub,Div,Mul,IDiv,Mod,Pow,
+    Add,Sub,Div,Mul,IDiv,Mod,Pow,Concat,
     And,Or,Xor,Shr,Shl,
     BoolAnd,BoolOr,BoolNot,
     Not,Neg,Len,
@@ -155,6 +155,8 @@ fn parse_rec(tokens:&mut Vec<Token>,bytes:&mut Peekable<Bytes>) -> Result<()> {
         (Token::Assing,   Token::Assing)  => tokens.push(Token::Eq),
         (Token::Greater,  Token::Assing)  => tokens.push(Token::GreaterEq),
         (Token::Less,     Token::Assing)  => tokens.push(Token::LessEq),
+
+        (Token::Dot,      Token::Dot)     => tokens.push(Token::Concat),
         _ => {
             tokens.push(prev_token);
             tokens.push(token);

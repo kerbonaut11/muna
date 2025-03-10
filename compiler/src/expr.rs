@@ -11,15 +11,19 @@ pub enum Op {
     IDiv,
     Pow,
     Mod,
+    Concat,
+
     And,
     Or,
     Xor,
+
     Less,
     LessEq,
     Eq,
     NotEq,
     Greater,
     GreaterEq,
+
     BoolAnd,
     BoolOr,
 }
@@ -381,12 +385,13 @@ impl Token {
 
     pub fn op_priority(&self) -> u32 {
         match self {
-            Token::Add|Token::Sub => 5,
-            Token::Mul|Token::Div|Token::IDiv|Token::Mod => 4,
-            Token::Pow => 4,
-            Token::And|Token::Or|Token::Xor => 3,
-            Token::Less|Token::LessEq|Token::Eq|Token::NotEq|Token::Greater|Token::GreaterEq => 2,
-            Token::BoolAnd|Token::BoolOr => 1,
+            Token::Add|Token::Sub => 9,
+            Token::Mul|Token::Div|Token::IDiv|Token::Mod =>8,
+            Token::Pow => 7,
+            Token::And|Token::Or|Token::Xor => 6,
+            Token::Less|Token::LessEq|Token::Eq|Token::NotEq|Token::Greater|Token::GreaterEq => 5,
+            Token::BoolAnd|Token::BoolOr => 4,
+            Token::Concat => 3,
             _ => 0, 
         }
     }
@@ -400,6 +405,7 @@ impl Token {
             Token::IDiv      => Some(Op::IDiv),
             Token::Pow       => Some(Op::Pow),
             Token::Mod       => Some(Op::Mod),
+            Token::Concat    => Some(Op::Concat),
             Token::And       => Some(Op::And),
             Token::Or        => Some(Op::Or),
             Token::Xor       => Some(Op::Xor),

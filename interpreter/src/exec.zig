@@ -23,6 +23,11 @@ pub fn exec(instr:ByteCode,vm: *Vm) !void {
         .div => try vm.binaryOp(ops.div),
         .pow => try vm.binaryOp(ops.pow),
         .mod => try vm.binaryOp(ops.mod),
+        .concat =>  {
+            const rhs = vm.pop();
+            const lhs = vm.top().*;
+            vm.top().* = Var.from(try ops.concat(lhs,rhs));
+        },
 
         .halt => return error.halt,
 

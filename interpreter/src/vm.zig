@@ -12,15 +12,24 @@ pub const Vm = struct {
     pub const gpa = _gpa.allocator();
     pub const page_a = std.heap.page_allocator;
 
-    const STACKSIZE:usize = 40_000;
+    const stack_size:usize = 40_000;
 
     full_stack_slice:[]Var,
     program:Program,
     sp:[*]Var,
     bp:[*]Var,
 
+    pub var nil_str:Str = undefined;
+    pub var false_str:Str = undefined;
+    pub var true_str:Str = undefined;
+
     pub fn init(program:Program) Self {
-        const stack = page_a.alloc(Var, STACKSIZE) catch unreachable;
+        const stack = page_a.alloc(Var, stack_size) catch unreachable;
+
+        nil_str = Str.init("nil");
+        false_str = Str.init("true");
+        true_str = Str.init("false");
+
         return .{
             .full_stack_slice = stack,
             .program = program,

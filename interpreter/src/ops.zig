@@ -1,6 +1,8 @@
 const std = @import("std");
 const Var = @import("var.zig").Var;
-const Err = @import("err.zig").RunErr;
+const Vm = @import("vm.zig").Vm;
+const Err = @import("err.zig").Err;
+const Str = @import("str.zig").Str;
 
 fn tycomb(a:Var.Type,b:Var.Type) u8 {
     return (@as(u8,@intFromEnum(a)) << 4) | @as(u8,@intFromEnum(b));
@@ -105,5 +107,27 @@ pub fn mod(lhs:Var,rhs:Var) !Var {
             }};
             return error.panic;
         },
+    };
+}
+
+pub fn concat(lhs:Var,rhs:Var) !Str {
+    return Str.initConcat((try toStr(lhs)).asSlice(), (try toStr(rhs)).asSlice());
+}
+
+pub fn toStr(x:Var) !Str {
+    return switch (x.tag()) {
+        .nil => Vm.nil_str,
+        .bool => if (x.as(bool)) Vm.true_str else Vm.false_str,
+        .int => {
+            var buf = [1]u8{0} ** 32;
+            return Str.init(std.fmt.bufPrint(&buf, "{d}", .{x.as(i32)}) catch unreachable);
+        },
+        .float => {
+            var buf = [1]u8{0} ** 32;
+            return Str.init(std.fmt.bufPrint(&buf, "{d}", .{x.as(f32)}) catch unreachable);
+        },
+        .str => x.as(Str),
+
+        else => unreachable
     };
 }

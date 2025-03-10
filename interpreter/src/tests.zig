@@ -21,8 +21,9 @@ test "expr" {
 test "assing/declaration" {
     const p = try Program.init("tests/assing_dec.out");
     var vm = Vm.init(p);
+    defer vm.deinit();
     try vm.execUntilHaltDebug();
-    try std.testing.expectEqualDeep("hello", vm.pop().as(Str).asSlice());
+    try std.testing.expectEqualDeep("helloworld10.1", vm.pop().as(Str).asSlice());
     try std.testing.expectEqual(10, vm.pop().as(i32));
     try std.testing.expectEqual(11.0*12.1, vm.pop().as(f32));
 }

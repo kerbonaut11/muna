@@ -14,7 +14,7 @@ pub const Str = struct {
     ptr:*StrHeader,
 
     fn u64SliceSize(bytes:usize) usize {
-        const len = if (@mod(bytes, 8) == 0) bytes else (bytes-@mod(bytes, 8)+bytes);
+        const len = if (bytes&0b111 == 0) bytes else ((bytes&~@as(usize,0b111))+8);
         return len/8;
     }
 
@@ -26,6 +26,18 @@ pub const Str = struct {
         ptr.len = @intCast(slice.len);
         const self = Self{.ptr = ptr};
         @memcpy(self.asSlice(), slice);
+        return self;
+    }
+
+    pub fn initConcat(a: []const u8,b: []const u8) Self {
+        const mem = Vm.gpa.alloc(u64, u64SliceSize(a.len+b.len) + header_size/8) catch unreachable;
+        const ptr: *StrHeader = @ptrCast(mem.ptr);
+
+        ptr.marked = false;
+        ptr.len = @intCast(a.len+b.len);
+        const self = Self{.ptr = ptr};
+        @memcpy(self.asSlice()[0..a.len], a);
+        @memcpy(self.asSlice()[a.len..], b);
         return self;
     }
 

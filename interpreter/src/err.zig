@@ -7,14 +7,14 @@ pub const ReturnCode = error {
     todo,
 };
 
-const RunErrType = enum {
+const ErrType = enum {
     invalidIdx,
     opTypeErr,
     funcTypeErr
 };
 
-pub const RunErr = union(RunErrType) {
-    pub var global:RunErr = undefined;
+pub const Err = union(ErrType) {
+    pub var global:Err = undefined;
 
     invalidIdx:Var,
     opTypeErr:struct {
