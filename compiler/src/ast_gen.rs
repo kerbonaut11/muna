@@ -140,8 +140,19 @@ fn parse_statement(tokens:&[Token]) -> Result<(AstNode,usize)> {
         }
         
         Token::Local => {
-            let (s,i) = parse_declaration(tokens)?;
-            Ok((AstNode::Declaration(s),i))
+            if tokens[1] != Token::Function { 
+                let (s,i) = parse_declaration(tokens)?;
+                Ok((AstNode::Declaration(s),i))
+            } else {
+                let (mut f,i) = parse_function(&tokens[1..])?;
+                f.is_local = true;
+                Ok((AstNode::Function(f),i+2))
+            }
+        }
+
+        Token::Function => {
+            let (f,i) = parse_function(tokens)?;
+            Ok((AstNode::Function(f),i+1))
         }
 
         _ => panic!("invalid token {:?} {:?}",tokens[0],tokens)
@@ -294,6 +305,29 @@ fn parse_declaration(tokens:&[Token]) -> Result<(Declaration,usize)> {
         Declaration{lhs,rhs},
         assing_idx+1+offset
     ))
+}
+
+fn parse_function(tokens:&[Token]) -> Result<(Function,usize)> {
+    let name = match &tokens[1]  {
+        Token::Ident(name) => name.clone(),
+        _ => unreachable!()
+    };
+
+    let open_block_idx = Token::find(tokens, &Token::CurlyO).unwrap();
+    let close_block_idx = Token::find_matching_bracket(tokens, open_block_idx).unwrap();
+
+    let args = Token::parse_list_of_idents(&tokens[3..open_block_idx-1]);
+    let block = parse_block(&tokens[open_block_idx+1..close_block_idx])?;
+
+    return Ok((
+        Function{
+            is_local:false,
+            name,
+            args,
+            block
+        },
+        close_block_idx
+    ));
 }
 
 
@@ -456,6 +490,34 @@ fn assing_test() {
         AstNode::Declaration(x) => {
             x.lhs.iter().for_each(|x| println!("x"));
             x.rhs.iter().for_each(|x| x.display_tree(0));
+        }
+
+        _ => panic!() 
+    }
+
+    match x[1] {
+        AstNode::Break => {}
+        _ => panic!()
+    }
+}
+
+
+#[test]
+fn function_test() {
+    use super::tokenizer;
+    let tokens = tokenizer::parse("local function f(a,b,hello) {return 1,2,\"e\" } break").unwrap();
+    let x = parse_block(&tokens).unwrap();
+    assert!(x.len() == 2);
+    match &x[0] {
+        AstNode::Function(f) => {
+            assert_eq!(f.name,"f".into());
+            assert_eq!(f.args[0],"a".into());
+            assert_eq!(f.args[1],"b".into());
+            assert_eq!(f.args[2],"hello".into());
+            assert!(match f.block[0] {
+               AstNode::Return(_) => true,
+               _ => false 
+            });
         }
 
         _ => panic!() 
