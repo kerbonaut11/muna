@@ -3,6 +3,7 @@ const Var = @import("var.zig").Var;
 const ByteCode = @import("bytecode.zig").ByteCode;
 const Program = @import("bytecode.zig").Program;
 const Str = @import("str.zig").Str;
+const Func = @import("func.zig").Func;
 const ReturnCode = @import("err.zig").ReturnCode;
 
 pub const Vm = struct {
@@ -15,9 +16,19 @@ pub const Vm = struct {
     const stack_size:usize = 40_000;
 
     full_stack_slice:[]Var,
-    program:Program,
     sp:[*]Var,
     bp:[*]Var,
+    upval_ctx:[*]Var,
+
+    program:Program,
+
+    call_stack:std.ArrayList(CallStackEntry),
+
+    pub const CallStackEntry = struct {
+        bp:[*]Var,
+        ip:[*]u32,
+        upval_ctx:[*]Var,
+    };
 
     pub var nil_str:Str = undefined;
     pub var false_str:Str = undefined;
@@ -30,12 +41,17 @@ pub const Vm = struct {
         false_str = Str.init("true");
         true_str = Str.init("false");
 
-        return .{
+        var self = Vm{
             .full_stack_slice = stack,
             .program = program,
             .bp = stack.ptr,
             .sp = stack.ptr,
+            .upval_ctx = undefined,
+            .call_stack = std.ArrayList(CallStackEntry).init(Vm.gpa)
         };
+
+        self.push(Var.NIL);
+        return self;
     }
 
     pub fn deinit(self:*Self) void {
@@ -49,10 +65,10 @@ pub const Vm = struct {
     }
 
     pub fn execDebug(self:*Self) !void {
-        const instr = self.program.next(ByteCode);
-        std.debug.print("executing {} \n", .{instr});
-        try @import("exec.zig").exec(instr, self);
         self.printLocals();
+        const instr = self.program.next(ByteCode);
+        std.debug.print("executing:{} {} \n", .{self.program.ip-self.program.list.items.ptr,instr});
+        try @import("exec.zig").exec(instr, self);
         std.debug.print("\n", .{});
     }
 
@@ -105,6 +121,7 @@ pub const Vm = struct {
                 .int => std.debug.print("int:{d}\n", .{local.as(i32)}),
                 .float => std.debug.print("float:{d}\n", .{local.as(f32)}),
                 .str => std.debug.print("str:{s}\n", .{local.as(Str).asSlice()}),
+                .func => std.debug.print("func@{x}\n", .{@intFromPtr(local.as(*Func).ptr)}),
                 else => {}
             }
         }

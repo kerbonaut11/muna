@@ -1,5 +1,7 @@
 const std = @import("std");
 const Str = @import("str.zig").Str;
+const Func = @import("func.zig").Func;
+const Table = @import("table.zig").Table;
 
 pub const VarType = enum(u3) {
     nil,
@@ -43,23 +45,27 @@ pub const Var = struct {
     }
 
     pub fn from(x: anytype) Self {
-        switch (@TypeOf(x)) {
-            bool => return fromTypeAndHigh(.bool, @intFromBool(x)),
-            i32, comptime_int   => return fromTypeAndHigh(.int, @bitCast(@as(i32, x))),
-            f32, comptime_float => return fromTypeAndHigh(.float, @bitCast(@as(f32, x))),
-            Str  => return fromTypeAndPtr(.str, @ptrCast(x.ptr)),
+        return switch (@TypeOf(x)) {
+            bool => fromTypeAndHigh(.bool, @intFromBool(x)),
+            i32, comptime_int   => fromTypeAndHigh(.int, @bitCast(@as(i32, x))),
+            f32, comptime_float => fromTypeAndHigh(.float, @bitCast(@as(f32, x))),
+            Str    => fromTypeAndPtr(.str,   @ptrCast(x.ptr)),
+            *Func  => fromTypeAndPtr(.func,  @ptrCast(x)),
+            *Table => fromTypeAndPtr(.float, @ptrCast(x)),
             else => unreachable,
-        }
+        };
     }
 
     pub fn as(self: Self, comptime T: type) T {
-        switch (T) {
-            bool => return self.highBits() == 1,
-            i32 => return @bitCast(self.highBits()),
-            f32 => return @bitCast(self.highBits()),
-            Str => return Str.fromPtr(self.asPtr()),
+        return switch (T) {
+            bool   => self.highBits() == 1,
+            i32    => @bitCast(self.highBits()),
+            f32    => @bitCast(self.highBits()),
+            Str    => Str.fromPtr(self.asPtr()),
+            *Func  => @ptrCast(@alignCast(self.asPtr())),
+            *Table => @ptrCast(@alignCast(self.asPtr())),
             else => unreachable,
-        }
+        };
     }
 
     pub fn intToFloat(self:Self) f32 {

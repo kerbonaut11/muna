@@ -24,7 +24,15 @@ pub const ByteCodeType = enum(u8) {
     mod    = 15,
     concat = 16,
 
-    halt = 17,
+    closure = 17,
+    call    = 18,
+    ret     = 19,
+
+    bind_upval = 20,
+    get_upval  = 21,
+    set_upval  = 22,
+
+    halt = 30,
 };
 
 pub const ByteCode = union(ByteCodeType) {
@@ -50,6 +58,18 @@ pub const ByteCode = union(ByteCodeType) {
     pow:void,
     mod:void,
     concat:void,
+
+    closure: packed struct {
+        upval_cap:u8,
+        arg_count:u8
+    },
+
+    call:void,
+    ret:void,
+
+    bind_upval:u16,
+    get_upval:u16,
+    set_upval:u16,
 
     halt:void,
 

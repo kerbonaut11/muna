@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug,Clone, Copy,PartialEq, Eq)]
 #[repr(u8)]
 pub enum ByteCode {
 
@@ -21,7 +21,18 @@ pub enum ByteCode {
     Mod    = 15,
     Concat = 16,
 
-    Halt = 17,
+    Closure{
+        upval_cap:u8,
+        arg_count:u8,
+    } = 17,
+    Call    = 18,
+    Ret     = 19,
+
+    BindUpval(u16) = 20,
+    GetUpval(u16)  = 21,
+    SetUpval(u16)  = 22,
+
+    Halt = 30,
 }
 
 

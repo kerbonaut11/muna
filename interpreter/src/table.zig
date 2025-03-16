@@ -2,7 +2,7 @@ const std = @import("std");
 const Var = @import("var.zig").Var;
 const Vm = @import("vm.zig").Vm;
 const Str = @import("str.zig").Str;
-const Err = @import("err.zig").RunErr;
+const Err = @import("err.zig").Err;
 
 pub const Table = struct {
     const Self = @This();
@@ -100,7 +100,6 @@ pub const Table = struct {
                 return error.run;
             },
             .bool => return if (k.as(bool)) bool_hash else ~bool_hash,
-            .char => unreachable,
             .int => return @bitCast(k.as(i32)),
             .float => {
                 const float = k.as(f32);

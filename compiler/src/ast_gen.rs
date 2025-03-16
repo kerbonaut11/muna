@@ -10,7 +10,7 @@ pub enum AstNode {
     For(ForStatement),
     While(WhileStatement),
     Break,
-    Return(Vec<Expr>),
+    Return(Option<Expr>),
     Function(Function),
 }
 
@@ -125,8 +125,8 @@ fn parse_statement(tokens:&[Token]) -> Result<(AstNode,usize)> {
         }
 
         Token::Return => {
-            let (s,i) = parse_list_of_expr(&tokens[1..])?;
-            Ok((AstNode::Return(s),i+1))
+            let i = find_start_of_next_statement(&tokens[1..])+1;
+            Ok((AstNode::Return(Some(Expr::parse(&tokens[1..i])?)),i))
         }
 
         Token::For => {
@@ -419,16 +419,16 @@ fn expr_list_test() {
 #[test]
 fn return_break_test() {
     use super::tokenizer;
-    let tokens = tokenizer::parse("return a,x+1 break").unwrap();
+    let tokens = tokenizer::parse("return x+1 break").unwrap();
     let x = parse_block(&tokens).unwrap();
     assert!(x.len() == 2);
     match &x[0] {
         AstNode::Return(x) => {
-            x.iter().for_each(|x| x.display_tree(0));
+            x.as_ref().unwrap().display_tree(0);
         }
-
         _ => panic!() 
     }
+
 
     match x[1] {
         AstNode::Break => {}

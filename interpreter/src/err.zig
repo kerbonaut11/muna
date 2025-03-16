@@ -10,6 +10,7 @@ pub const ReturnCode = error {
 const ErrType = enum {
     invalidIdx,
     opTypeErr,
+    unaryTypeErr,
     funcTypeErr
 };
 
@@ -23,6 +24,13 @@ pub const Err = union(ErrType) {
         },
         rhs:Var.Type,
         lhs:Var.Type,
+    },
+
+    unaryTypeErr:struct {
+        op:enum {
+            call,not,
+        },
+        ty:Var.Type
     },
 
     funcTypeErr:struct {
