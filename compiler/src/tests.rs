@@ -63,7 +63,7 @@ pub fn call_ret_test_file() {
 
 
 #[test]
-pub fn func_comp_file() {
+pub fn func_comp_test_file() {
     let mut comp_ctx = CompileCtx::new();
     let mut bytecode = ByteCodeVec::new();
 
@@ -82,4 +82,29 @@ pub fn func_comp_file() {
     let block = ast_gen::parse_block(&tokens).unwrap();
     FuncCtx::new(&[]).compile(&block,&mut comp_ctx, &mut bytecode);
     comp_ctx.write_to_file(&bytecode,"../tests/func_comp.out");
+}
+
+
+#[test]
+pub fn inline_func_test_file() {
+    let mut comp_ctx = CompileCtx::new();
+    let mut bytecode = ByteCodeVec::new();
+
+
+    let tokens = &tokenizer::parse("
+        function new_counter(x) {
+            local step = 10
+            return function() {
+                x = x+step
+                return x
+            }
+        }
+
+        local counter = new_counter(3)
+        local x = counter()
+        local y = counter()
+    ").unwrap();
+    let block = ast_gen::parse_block(&tokens).unwrap();
+    FuncCtx::new(&[]).compile(&block,&mut comp_ctx, &mut bytecode);
+    comp_ctx.write_to_file(&bytecode,"../tests/inline_func.out");
 }

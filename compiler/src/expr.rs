@@ -155,7 +155,6 @@ impl Expr {
 
 
 fn parse_rec(tokens:&[Token]) -> Result<Expr> {
-    //println!("{:?}",tokens);
     if tokens.len() == 1 {
         return Ok(match &tokens[0] {
             Token::Nil => Expr::NilLiteral,
@@ -279,6 +278,10 @@ fn parse_rec(tokens:&[Token]) -> Result<Expr> {
 
 
 fn parse_args(tokens:&[Token]) -> Result<Vec<Expr>> {
+    if tokens.is_empty() {
+        return Ok(vec![]);
+    }
+
     if let Some(comma_idx) = Token::find_outside_of_brackets(tokens, &Token::Comma) {
         let arg = Expr::parse(&tokens[..comma_idx])?;
         let mut args = parse_args(&tokens[comma_idx+1..])?;

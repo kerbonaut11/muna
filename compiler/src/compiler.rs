@@ -11,6 +11,9 @@ pub struct FuncCtx<'a> {
     args:Vec<Box<str>>,
     locals:Vec<(Box<str>,u32)>,
     upvals:Vec<Box<str>>,
+
+    func_load_indices:Vec<usize>,
+    sub_func_bytecode:Vec<ByteCodeVec>,
 }
 
 enum VarKind {
@@ -29,6 +32,9 @@ impl<'a> FuncCtx<'a> {
             scope_depth:0,
             locals: vec![],
             upvals:vec![], 
+
+            func_load_indices:vec![],
+            sub_func_bytecode:vec![],
         };
 
         for arg in args {
@@ -56,31 +62,36 @@ impl<'a> FuncCtx<'a> {
     }
 
     fn kind_of_ident(&mut self,name:&str) -> VarKind {
-        if let Some(id) = self.locals.iter().enumerate().rev()
-            .find(|(i,x)| *x.0 == *name)
-            .map(|(i,_)| i as u16) {
-            return VarKind::Local(id);
+        //println!("searching for:{}",name);
+        //println!("locals:{:?}",self.locals);
+        //println!("args:{:?}",self.args);
+        //println!("upvals:{:?}",self.upvals);
+        //println!("");
+
+        if let Some((id,_)) = self.locals.iter().enumerate().rev()
+        .find(|(i,x)| *x.0 == *name) {
+            return VarKind::Local(id as u16 + self.args.len() as u16);
         }
 
-        if let Some(id) = self.args.iter().enumerate().rev()
-            .find(|(i,x)| ***x == *name)
-            .map(|(i,_)| i as u16) {
-            return VarKind::Local(id);
+        if let Some((id,_)) = self.args.iter().enumerate().rev()
+        .find(|(i,x)| ***x == *name) {
+            return VarKind::Local(id as u16);
         }
 
         if let Some(id) = self.upvals.iter().enumerate()
-            .find(|(i,x)| ***x == *name)
-            .map(|(i,_)| i as u16) {
+        .find(|(i,x)| ***x == *name)
+        .map(|(i,_)| i as u16) {
             return VarKind::Upval(id);
         }
 
-        if let Some(prev) = self.get_prev() {
-            if let Some(_) = prev.locals.iter().enumerate()
-                .find(|(i,x)| *x.0 == *name)
-                .map(|(i,_)| i as u16) {
-                let id = self.upvals.len();
-                self.upvals.push(name.into());
-                return VarKind::Upval(id as u16);
+        if let Some(prev) = self.get_prev_mut() {
+            match prev.kind_of_ident(name) {
+                VarKind::Local(_) => {
+                    let id = self.upvals.len();
+                    self.upvals.push(name.into());
+                    return VarKind::Upval(id as u16);
+                },
+                _ => {}
             }
         }
 
@@ -113,20 +124,17 @@ impl<'a> FuncCtx<'a> {
             self.sub_funcs.push(func);
         }}
 
-        let mut func_load_bytecode = vec![];
-        let mut sub_func_bytecode:Vec<ByteCodeVec> = vec![];
-
         for (i,sub_func) in self.sub_funcs.iter_mut().enumerate() {
             let mut func_bytecode = ByteCodeVec::new();
             sub_func.compile(sub_func_blocks[i], comp_ctx, &mut func_bytecode);
-            sub_func_bytecode.push(func_bytecode);
+            self.sub_func_bytecode.push(func_bytecode);
 
-            func_load_bytecode.push(ByteCode::Closure { upval_cap: sub_func.upvals.len() as u8, arg_count: sub_func.args.len() as u8 });
-            func_load_bytecode.push(ByteCode::Load(i as u16));
-        }
-
-        for _ in 0..func_load_bytecode.len() {
-            bytecode.encode_int(0);
+            self.func_load_indices.push(bytecode.len());
+            bytecode.encode_instr(ByteCode::Closure { 
+                upval_cap: sub_func.upvals.len() as u8,
+                arg_count: sub_func.args.len() as u8 
+            });
+            bytecode.encode_int(0x0aaaffff);
         }
 
         for (sub_func_idx,sub_func) in self.sub_funcs.iter_mut().enumerate() {
@@ -164,7 +172,7 @@ impl<'a> FuncCtx<'a> {
                         Expr::Ident(name) => {
                             match self.kind_of_ident(name) {
                                 VarKind::Local(id) => bytecode.encode_instr(ByteCode::Write(id+1)),
-                                VarKind::Global(_) => todo!(),
+                                VarKind::Global(name) => panic!("globals unimplimented: {}",name),
                                 VarKind::Upval(id) => bytecode.encode_instr(ByteCode::SetUpval(id)),
                             }
                         }
@@ -187,25 +195,24 @@ impl<'a> FuncCtx<'a> {
 
         bytecode.encode_instr(ByteCode::Ret);
 
-        for i in (0..func_load_bytecode.len()).step_by(2) {
-            bytecode.encode_instr_at(func_load_bytecode[i], i);
-            let offset = bytecode.len()-i-2;
-            bytecode.raw[i+1] = offset as u32;
-            bytecode.append(&mut sub_func_bytecode[i/2]);
+        for (i,offset_idx) in self.func_load_indices.iter().enumerate() {
+            let offset = bytecode.len()-offset_idx-2;
+            assert_eq!(bytecode.raw[*offset_idx+1],0x0aaaffff,"{:#x} {:#x}",bytecode.raw[*offset_idx+1],0x0aaaffff,);
+            bytecode.raw[(*offset_idx)+1] = offset as u32;
+            bytecode.append(&mut self.sub_func_bytecode[i]);
         }
     }
 }
 
 impl Expr {
-    pub fn compile(&self, ctx:&mut FuncCtx, comp_ctx:&mut CompileCtx, bytecode:&mut ByteCodeVec) {
+    pub fn compile(
+        &self,
+        ctx:&mut FuncCtx,
+        comp_ctx:&mut CompileCtx,
+        bytecode:&mut ByteCodeVec,
+    ) {
         match self {
-            Expr::Ident(name) => {
-                match ctx.kind_of_ident(name) {
-                    VarKind::Local(id) => bytecode.encode_instr(ByteCode::Load(id+1)),
-                    VarKind::Global(_) => todo!(),
-                    VarKind::Upval(id) => bytecode.encode_instr(ByteCode::GetUpval(id)),
-                }
-            },
+            Expr::Ident(name) => comile_ident(&name, ctx, bytecode),
 
             Expr::NilLiteral => bytecode.encode_instr(ByteCode::LoadNil),
             Expr::BoolLiteral(x) => bytecode.encode_instr(if *x {ByteCode::LoadTrue} else {ByteCode::LoadFalse}),
@@ -249,22 +256,37 @@ impl Expr {
                 bytecode.encode_instr(ByteCode::Call);
             }
 
+            Expr::Function(InlineFunction { args, block }) => {
+                let mut func_bytecode = ByteCodeVec::new();
+                let mut sub_func_ctx = FuncCtx::new(args);
+                sub_func_ctx.prev = Some(ctx);
+                sub_func_ctx.compile(block, comp_ctx, &mut func_bytecode);
+
+                ctx.sub_func_bytecode.push(func_bytecode);
+                ctx.func_load_indices.push(bytecode.len());
+
+                bytecode.encode_instr(ByteCode::Closure { 
+                    upval_cap: sub_func_ctx.upvals.len() as u8,
+                    arg_count: sub_func_ctx.args.len() as u8
+                });
+                bytecode.encode_int(0x0aaaffff);
+
+                for (i,upval) in sub_func_ctx.upvals.iter().enumerate() {
+                    comile_ident(&upval, ctx, bytecode);
+                    bytecode.encode_instr(ByteCode::BindUpval(i as u16));
+                }
+            }
+
 
             _ => todo!()
         }
     }
 }
 
-
-#[derive(PartialEq, Eq, Hash)]
-pub struct LableId(NonZeroU32);
-
-static LABEL_NEXT_ID:Mutex<u32> = Mutex::new(0);
-
-impl LableId {
-    pub fn new() -> Self {
-        let mut lock = LABEL_NEXT_ID.lock().unwrap();
-        *lock += 1;
-        return Self(unsafe{NonZeroU32::new_unchecked(*lock)}); 
+fn comile_ident(name:&str,ctx:&mut FuncCtx,bytecode:&mut ByteCodeVec) {
+    match ctx.kind_of_ident(name) {
+        VarKind::Local(id) => bytecode.encode_instr(ByteCode::Load(id+1)),
+        VarKind::Global(_) => todo!(),
+        VarKind::Upval(id) => bytecode.encode_instr(ByteCode::GetUpval(id)),
     }
 }

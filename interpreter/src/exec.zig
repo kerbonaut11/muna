@@ -34,6 +34,7 @@ pub fn exec(instr:ByteCode,vm: *Vm) !void {
 
         .closure => |arg| {
             const offset = vm.program.next(u32);
+            std.debug.print("{}\n", .{offset});
             const ptr = vm.program.ip + offset;
             const func = Func.init(ptr,arg.arg_count,arg.upval_cap);
             vm.push(Var.from(func));
