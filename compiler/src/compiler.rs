@@ -1,6 +1,6 @@
 use std::{collections::HashMap, num::NonZeroU32, sync::Mutex};
 
-use crate::{asm::{ByteCodeVec, CompileCtx}, ast_gen::{Assing, AstNode, Block, Declaration, ForStatement, Function, IfElseStatement}, bytecode::ByteCode, expr::{self, Expr, InlineFunction, Op, UnaryOp}};
+use crate::{asm::{ByteCodeVec, CompileCtx}, ast_gen::{Assing, AstNode, Block, Declaration, ForStatement, Function, IfElseStatement, WhileStatement}, bytecode::ByteCode, expr::{self, Expr, InlineFunction, Op, UnaryOp}};
 
 
 pub struct FuncCtx<'a> {
@@ -189,6 +189,39 @@ impl<'a> FuncCtx<'a> {
                 bytecode.encode_instr(ByteCode::Ret);
             }
 
+            AstNode::If(IfElseStatement { cond, block, next }) => {
+                if let Some(cond) = cond {
+                    cond.compile(self, comp_ctx, bytecode);
+                }
+
+                let head_jump_idx = bytecode.len();
+                bytecode.encode_int(0);
+
+                self.up_scope();
+                self.compile(block, comp_ctx, bytecode);
+                self.down_scope();
+
+
+            }
+
+            AstNode::While(WhileStatement { cond, block }) => {
+                let start_len = bytecode.len();
+
+                cond.compile(self, comp_ctx, bytecode);
+                let head_jump_idx = bytecode.len();
+                bytecode.encode_int(0);
+
+                self.up_scope();
+                self.compile(block, comp_ctx, bytecode);
+                self.down_scope();
+
+                let head_jump_offset  = bytecode.len()-head_jump_idx;
+                bytecode.encode_instr_at(ByteCode::JumpFalse(head_jump_offset as i16),head_jump_idx);
+
+                let back_jump_offset = bytecode.len()-start_len+1;
+                bytecode.encode_instr(ByteCode::Jump(-(back_jump_offset as i16)));
+            }
+
             AstNode::Function(_) => {}
             _ => todo!(),
         }}
@@ -233,14 +266,21 @@ impl Expr {
                 lhs.compile(ctx,comp_ctx,bytecode);
                 rhs.compile(ctx,comp_ctx,bytecode);
                 bytecode.encode_instr(match op {
-                    Op::Add => ByteCode::Add,
-                    Op::Sub => ByteCode::Sub,
-                    Op::Mul => ByteCode::Mul,
-                    Op::Div => ByteCode::Div,
-                    Op::IDiv => ByteCode::IDiv,
-                    Op::Pow => ByteCode::Pow,
-                    Op::Mod => ByteCode::Mod,
+                    Op::Add    => ByteCode::Add,
+                    Op::Sub    => ByteCode::Sub,
+                    Op::Mul    => ByteCode::Mul,
+                    Op::Div    => ByteCode::Div,
+                    Op::IDiv   => ByteCode::IDiv,
+                    Op::Pow    => ByteCode::Pow,
+                    Op::Mod    => ByteCode::Mod,
                     Op::Concat => ByteCode::Concat,
+
+                    Op::Eq        => ByteCode::Eq(true),
+                    Op::NotEq     => ByteCode::Eq(false),
+                    Op::Less      => ByteCode::Less(true),
+                    Op::Greater   => ByteCode::LessEq(false),
+                    Op::LessEq    => ByteCode::LessEq(true),
+                    Op::GreaterEq => ByteCode::Less(false),
                     _ => todo!()
                 });
             }
@@ -290,3 +330,4 @@ fn comile_ident(name:&str,ctx:&mut FuncCtx,bytecode:&mut ByteCodeVec) {
         VarKind::Upval(id) => bytecode.encode_instr(ByteCode::GetUpval(id)),
     }
 }
+

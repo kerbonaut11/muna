@@ -56,6 +56,7 @@ pub const Vm = struct {
 
     pub fn deinit(self:*Self) void {
         page_a.free(self.full_stack_slice);
+        self.call_stack.deinit();
         self.program.deinit();
     }
 

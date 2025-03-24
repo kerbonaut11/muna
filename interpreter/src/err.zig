@@ -20,7 +20,8 @@ pub const Err = union(ErrType) {
     invalidIdx:Var,
     opTypeErr:struct {
         op:enum {
-            add,sub,div,idiv,mul,pow,mod,concat
+            add,sub,div,idiv,mul,pow,mod,concat,
+            eq,compare
         },
         rhs:Var.Type,
         lhs:Var.Type,

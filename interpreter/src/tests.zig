@@ -38,15 +38,24 @@ test "call/ret" {
     try std.testing.expectEqual(32*32, vm.pop().as(i32));
 }
 
-//test "func comp" {
-//    const p = try Program.init("tests/func_comp.out");
-//    var vm = Vm.init(p);
-//    defer vm.deinit();
-//    try vm.execUntilHaltDebug();
-//    try std.testing.expectEqual(22,vm.pop().as(i32));
-//}
+test "func comp" {
+    const p = try Program.init("tests/func_comp.out");
+    var vm = Vm.init(p);
+    defer vm.deinit();
+    try vm.execUntilHaltDebug();
+    try std.testing.expectEqual(22,vm.pop().as(i32));
+}
 
 test "inline func" {
+    const p = try Program.init("tests/inline_func.out");
+    var vm = Vm.init(p);
+    defer vm.deinit();
+    try vm.execUntilHaltDebug();
+    try std.testing.expectEqual(23,vm.pop().as(i32));
+    try std.testing.expectEqual(13,vm.pop().as(i32));
+}
+
+test "while" {
     const p = try Program.init("tests/inline_func.out");
     var vm = Vm.init(p);
     defer vm.deinit();

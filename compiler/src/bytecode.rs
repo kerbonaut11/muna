@@ -21,6 +21,10 @@ pub enum ByteCode {
     Mod    = 15,
     Concat = 16,
 
+    Less(bool)   = 26,
+    LessEq(bool) = 27,
+    Eq(bool)     = 28,
+
     Closure{
         upval_cap:u8,
         arg_count:u8,
@@ -31,6 +35,10 @@ pub enum ByteCode {
     BindUpval(u16) = 20,
     GetUpval(u16)  = 21,
     SetUpval(u16)  = 22,
+
+    Jump(i16)      = 23,
+    JumpTrue(i16)  = 24,
+    JumpFalse(i16) = 25,
 
     Halt = 30,
 }

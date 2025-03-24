@@ -83,6 +83,10 @@ pub fn exec(instr:ByteCode,vm: *Vm) !void {
         .get_upval => |i| vm.push(vm.upval_ctx[i]),
         .set_upval => |i| vm.upval_ctx[i] = vm.pop(),
 
+        .jump => |offset| vm.program.ip += @bitCast(@as(i64,offset)),
+        .jump_true  => |offset| if ( try ops.truthy(vm.pop())) {vm.program.ip += @bitCast(@as(i64,offset));},
+        .jump_false => |offset| if (!try ops.truthy(vm.pop())) {vm.program.ip += @bitCast(@as(i64,offset));},
+
         .halt => return error.halt,
 
         else => return error.todo,

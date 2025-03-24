@@ -1,5 +1,15 @@
 use crate::{asm::{ByteCodeVec, CompileCtx}, ast_gen, bytecode::ByteCode, compiler::FuncCtx, expr::Expr, tokenizer};
 
+fn compile_to_file(src:&str,path:&str) {
+    let mut comp_ctx = CompileCtx::new();
+    let mut bytecode = ByteCodeVec::new();
+    let tokens = &tokenizer::parse(src).unwrap();
+    let block = ast_gen::parse_block(&tokens).unwrap();
+    FuncCtx::new(&[]).compile(&block ,&mut comp_ctx, &mut bytecode);
+    comp_ctx.write_to_file(&bytecode,path);
+}
+
+
 #[test]
 pub fn compatibility_test_file() {
     let comp_ctx = CompileCtx::new();
@@ -19,26 +29,12 @@ pub fn compatibility_test_file() {
 
 #[test]
 pub fn expr_test_file() {
-    let mut comp_ctx = CompileCtx::new();
-    let mut bytecode = ByteCodeVec::new();
-
-    let expr = Expr::parse(&tokenizer::parse("(1+32.0)/3 ").unwrap()).unwrap();
-    expr.compile(&mut FuncCtx::new(&[]), &mut comp_ctx, &mut bytecode);
-    bytecode.encode_instr(ByteCode::Halt);
-    comp_ctx.write_to_file(&bytecode, "../tests/expr.out");
+    compile_to_file("(1+32.0)/3 ", "../tests/expr.out");
 }
 
 #[test]
 pub fn assing_declaration_test_file() {
-    let mut comp_ctx = CompileCtx::new();
-    let mut bytecode = ByteCodeVec::new();
-
-
-    let tokens = &tokenizer::parse("local x,y,z = 10,12.1,\"hello\" x,y,z = (x+1)*y,x,z..\"world\"..10.1 ").unwrap();
-    let block = ast_gen::parse_block(&tokens).unwrap();
-     FuncCtx::new(&[]).compile(&block,&mut comp_ctx, &mut bytecode);
-    bytecode.encode_instr(ByteCode::Halt);
-    comp_ctx.write_to_file(&bytecode,"../tests/assing_dec.out");
+    compile_to_file("local x,y,z = 10,12.1,\"hello\" x,y,z = (x+1)*y,x,z..\"world\"..10.1 ","../tests/assing_dec.out");
 }
 
 #[test]
@@ -64,11 +60,7 @@ pub fn call_ret_test_file() {
 
 #[test]
 pub fn func_comp_test_file() {
-    let mut comp_ctx = CompileCtx::new();
-    let mut bytecode = ByteCodeVec::new();
-
-
-    let tokens = &tokenizer::parse("
+    compile_to_file("
         function a(x) {
             return b(x+1)
         }
@@ -78,20 +70,13 @@ pub fn func_comp_test_file() {
         }
 
         local x = a(10) 
-    ").unwrap();
-    let block = ast_gen::parse_block(&tokens).unwrap();
-    FuncCtx::new(&[]).compile(&block,&mut comp_ctx, &mut bytecode);
-    comp_ctx.write_to_file(&bytecode,"../tests/func_comp.out");
+    ","../tests/func_comp.out");
 }
 
 
 #[test]
 pub fn inline_func_test_file() {
-    let mut comp_ctx = CompileCtx::new();
-    let mut bytecode = ByteCodeVec::new();
-
-
-    let tokens = &tokenizer::parse("
+    compile_to_file("
         function new_counter(x) {
             local step = 10
             return function() {
@@ -103,8 +88,17 @@ pub fn inline_func_test_file() {
         local counter = new_counter(3)
         local x = counter()
         local y = counter()
-    ").unwrap();
-    let block = ast_gen::parse_block(&tokens).unwrap();
-    FuncCtx::new(&[]).compile(&block,&mut comp_ctx, &mut bytecode);
-    comp_ctx.write_to_file(&bytecode,"../tests/inline_func.out");
+    ","../tests/inline_func.out");
 }
+
+#[test]
+pub fn while_test_file() {
+    compile_to_file("
+        local i = 0
+        while 10 > i {
+            i = i+1
+        }
+    ","../tests/while.out");
+}
+
+

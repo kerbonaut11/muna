@@ -108,6 +108,15 @@ fn encode_instr_to_u32(x:ByteCode) -> u32 {
                 out[1] = (x >> 8)as u8;
             }
 
+            ByteCode::Jump(x) | ByteCode::JumpFalse(x) | ByteCode::JumpTrue(x) => {
+                out[0] = (x & 0xFF)as u8;
+                out[1] = (x >> 8)as u8;
+            }
+
+            ByteCode::Less(x) | ByteCode::LessEq(x) | ByteCode::Eq(x) => {
+                out[0] = x as u8;
+            }
+
             ByteCode::Closure { upval_cap, arg_count } => {
                 out[0] = upval_cap;
                 out[1] = arg_count;

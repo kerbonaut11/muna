@@ -9,7 +9,6 @@ pub const ByteCodeType = enum(u8) {
     load_false         = 2,
     load_int           = 3,
     load_float         = 4,
-    load_to_name_table = 5,
     load_str           = 6,
 
     load  = 7,
@@ -24,6 +23,10 @@ pub const ByteCodeType = enum(u8) {
     mod    = 15,
     concat = 16,
 
+    less    = 26,
+    less_eq = 27,
+    eq      = 28,
+
     closure = 17,
     call    = 18,
     ret     = 19,
@@ -31,6 +34,10 @@ pub const ByteCodeType = enum(u8) {
     bind_upval = 20,
     get_upval  = 21,
     set_upval  = 22,
+
+    jump       = 23,
+    jump_true  = 24,
+    jump_false = 25,
 
     halt = 30,
 };
@@ -43,7 +50,6 @@ pub const ByteCode = union(ByteCodeType) {
     load_false:void,
     load_int:void,
     load_float:void,
-    load_to_name_table:u16,
     load_str:u16,
 
 
@@ -59,6 +65,10 @@ pub const ByteCode = union(ByteCodeType) {
     mod:void,
     concat:void,
 
+    less:bool,
+    less_eq:bool,
+    eq:bool,
+
     closure: packed struct {
         upval_cap:u8,
         arg_count:u8
@@ -70,6 +80,10 @@ pub const ByteCode = union(ByteCodeType) {
     bind_upval:u16,
     get_upval:u16,
     set_upval:u16,
+
+    jump:i16,
+    jump_true:i16,
+    jump_false:i16,
 
     halt:void,
 
@@ -109,7 +123,7 @@ pub const Program = struct {
 
     pub fn loadNameTable(reader:anytype) []Var {
         const name_count = reader.readInt(u16, .little)  catch unreachable;
-        var name_table = Vm.gpa.alloc(Var, max_names) catch unreachable;
+        var name_table = Vm.page_a.alloc(Var, max_names) catch unreachable;
         var buffer:[std.math.maxInt(u16)]u8 = undefined;
 
         for (0..name_count) |i| {

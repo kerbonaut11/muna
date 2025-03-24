@@ -101,7 +101,7 @@ pub fn mod(lhs:Var,rhs:Var) !Var {
         tycomb(.float, .float) => Var.from(@mod(lhs.as(f32),      rhs.as(f32))),
         else => {
             Err.global = Err{.opTypeErr = .{
-                .op = .pow,
+                .op = .mod,
                 .lhs = lhs.tag(),
                 .rhs = rhs.tag()
             }};
@@ -129,5 +129,63 @@ pub fn toStr(x:Var) !Str {
         .str => x.as(Str),
 
         else => unreachable
+    };
+}
+
+pub fn eq(lhs:Var,rhs:Var) !bool {
+    return switch (tycomb(lhs.tag(), rhs.tag())) {
+        tycomb(.nil, .nil)     => true,
+        tycomb(.bool, .bool)   => lhs.as(bool) == rhs.as(bool),
+        tycomb(.str, .str)     => lhs.as(Str).asSlice() == rhs.as(Str).asSlice(),
+
+        tycomb(.int, .int)     => lhs.as(i32)      < rhs.as(i32),
+        tycomb(.int, .float)   => lhs.intToFloat() < rhs.as(f32),
+        tycomb(.float, .int)   => lhs.as(f32)      < rhs.intToFloat(),
+        tycomb(.float, .float) => lhs.as(f32)      < rhs.as(f32),
+        else => false
+    };
+}
+
+
+pub fn less(lhs:Var,rhs:Var) !bool {
+    return switch (tycomb(lhs.tag(), rhs.tag())) {
+        tycomb(.int, .int)     => lhs.as(i32)      < rhs.as(i32),
+        tycomb(.int, .float)   => lhs.intToFloat() < rhs.as(f32),
+        tycomb(.float, .int)   => lhs.as(f32)      < rhs.intToFloat(),
+        tycomb(.float, .float) => lhs.as(f32)      < rhs.as(f32),
+        else => {
+            Err.global = Err{.opTypeErr = .{
+                .op = .compare,
+                .lhs = lhs.tag(),
+                .rhs = rhs.tag()
+            }};
+            return error.panic;
+        },
+    };
+}
+
+pub fn less_eq(lhs:Var,rhs:Var) !bool {
+    return switch (tycomb(lhs.tag(), rhs.tag())) {
+        tycomb(.int, .int)     => lhs.as(i32)      <= rhs.as(i32),
+        tycomb(.int, .float)   => lhs.intToFloat() <= rhs.as(f32),
+        tycomb(.float, .int)   => lhs.as(f32)      <= rhs.intToFloat(),
+        tycomb(.float, .float) => lhs.as(f32)      <= rhs.as(f32),
+        else => {
+            Err.global = Err{.opTypeErr = .{
+                .op = .compare,
+                .lhs = lhs.tag(),
+                .rhs = rhs.tag()
+            }};
+            return error.panic;
+        },
+    };
+}
+
+
+pub fn truthy(x:Var) !bool {
+    return switch (x.tag()) {
+        .nil  => false,
+        .bool => x.as(bool),
+        else => true
     };
 }
