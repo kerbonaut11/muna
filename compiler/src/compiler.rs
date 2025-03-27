@@ -1,6 +1,6 @@
 use std::{collections::HashMap, num::NonZeroU32, sync::Mutex};
 
-use crate::{asm::{ByteCodeVec, CompileCtx}, ast_gen::{Assing, AstNode, Block, Declaration, ForStatement, Function, IfElseStatement, WhileStatement}, bytecode::ByteCode, expr::{self, Expr, InlineFunction, Op, UnaryOp}};
+use crate::{asm::{ByteCodeVec, CompileCtx, LabelId}, ast_gen::{Assing, AstNode, Block, Declaration, ForStatement, Function, IfElseStatement, WhileStatement}, bytecode::{ByteCode, ClosureArgs}, expr::{self, Expr, InlineFunction, Op, UnaryOp}};
 
 
 pub struct FuncCtx<'a> {
@@ -12,7 +12,7 @@ pub struct FuncCtx<'a> {
     locals:Vec<(Box<str>,u32)>,
     upvals:Vec<Box<str>>,
 
-    func_load_indices:Vec<usize>,
+    sub_func_labels:Vec<LabelId>,
     sub_func_bytecode:Vec<ByteCodeVec>,
 }
 
@@ -33,7 +33,7 @@ impl<'a> FuncCtx<'a> {
             locals: vec![],
             upvals:vec![], 
 
-            func_load_indices:vec![],
+            sub_func_labels:vec![],
             sub_func_bytecode:vec![],
         };
 
@@ -112,7 +112,14 @@ impl<'a> FuncCtx<'a> {
         self.scope_depth -= 1;
     }
 
-    pub fn compile(&mut self, block:&[AstNode], comp_ctx:&mut CompileCtx,  bytecode:&mut ByteCodeVec) {
+    pub fn compile(
+        &mut self,
+        block:&[AstNode],
+        comp_ctx:&mut CompileCtx,
+        bytecode:&mut ByteCodeVec,
+        encode_at_end:Option<ByteCode>,
+        break_label:Option<LabelId>
+    ) {
 
         let mut sub_func_blocks = vec![];
         for node in block { if let AstNode::Function(func) = node {
@@ -126,20 +133,21 @@ impl<'a> FuncCtx<'a> {
 
         for (i,sub_func) in self.sub_funcs.iter_mut().enumerate() {
             let mut func_bytecode = ByteCodeVec::new();
-            sub_func.compile(sub_func_blocks[i], comp_ctx, &mut func_bytecode);
+            sub_func.compile(sub_func_blocks[i], comp_ctx, &mut func_bytecode, Some(ByteCode::Ret), None);
             self.sub_func_bytecode.push(func_bytecode);
 
-            self.func_load_indices.push(bytecode.len());
-            bytecode.encode_instr(ByteCode::Closure { 
+            let label = comp_ctx.new_label();
+            self.sub_func_labels.push(label);
+            bytecode.add_instr(ByteCode::Closure(ClosureArgs{
+                label,
                 upval_cap: sub_func.upvals.len() as u8,
                 arg_count: sub_func.args.len() as u8 
-            });
-            bytecode.encode_int(0x0aaaffff);
+            }));
         }
 
         for (sub_func_idx,sub_func) in self.sub_funcs.iter_mut().enumerate() {
             if !sub_func.upvals.is_empty() {
-                bytecode.encode_instr(ByteCode::Load((sub_func_idx+1) as u16));
+                bytecode.add_instr(ByteCode::Load((sub_func_idx+1) as u16));
 
                 for (upval_idx,upval) in sub_func.upvals.iter().enumerate() {
                     let id = self.locals.iter().enumerate().rev()
@@ -147,11 +155,11 @@ impl<'a> FuncCtx<'a> {
                         .map(|(i,_)| i as u16)
                         .unwrap();
 
-                        bytecode.encode_instr(ByteCode::Load(id+1));
-                        bytecode.encode_instr(ByteCode::BindUpval(upval_idx as u16));
+                        bytecode.add_instr(ByteCode::Load(id+1));
+                        bytecode.add_instr(ByteCode::BindUpval(upval_idx as u16));
                 }
 
-                bytecode.encode_instr(ByteCode::Write((sub_func_idx+1) as u16));
+                bytecode.add_instr(ByteCode::Write((sub_func_idx+1) as u16));
             }
         }
 
@@ -171,9 +179,9 @@ impl<'a> FuncCtx<'a> {
                     match lhs {
                         Expr::Ident(name) => {
                             match self.kind_of_ident(name) {
-                                VarKind::Local(id) => bytecode.encode_instr(ByteCode::Write(id+1)),
+                                VarKind::Local(id) => bytecode.add_instr(ByteCode::Write(id+1)),
                                 VarKind::Global(name) => panic!("globals unimplimented: {}",name),
-                                VarKind::Upval(id) => bytecode.encode_instr(ByteCode::SetUpval(id)),
+                                VarKind::Upval(id) => bytecode.add_instr(ByteCode::SetUpval(id)),
                             }
                         }
                         _ => unreachable!(),
@@ -184,55 +192,72 @@ impl<'a> FuncCtx<'a> {
             AstNode::Return(expr) => {
                 if let Some(expr) = expr {
                     expr.compile(self, comp_ctx, bytecode);
-                    bytecode.encode_instr(ByteCode::Write(0));
+                    bytecode.add_instr(ByteCode::Write(0));
                 }
-                bytecode.encode_instr(ByteCode::Ret);
+                bytecode.add_instr(ByteCode::Ret);
             }
 
-            AstNode::If(IfElseStatement { cond, block, next }) => {
-                if let Some(cond) = cond {
-                    cond.compile(self, comp_ctx, bytecode);
+            AstNode::If(x) => {
+                let mut current = x;
+                let end_label = comp_ctx.new_label();
+
+                loop {
+                    if let Some(cond) = current.cond.clone() {
+                        cond.compile(self, comp_ctx, bytecode);
+                        let else_label = comp_ctx.new_label();
+                        bytecode.add_instr(ByteCode::JumpFalse(else_label));
+
+                        self.up_scope();
+                        self.compile(&current.block, comp_ctx, bytecode, None, break_label);
+                        self.down_scope();
+                        bytecode.add_instr(ByteCode::Jump(end_label));
+                        bytecode.add_label(else_label);
+                    } else {
+                        self.up_scope();
+                        self.compile(&current.block, comp_ctx, bytecode, None, break_label);
+                        self.down_scope();
+                    }
+
+                    if current.next.is_none() {
+                        break;
+                    }
+
+                    current = &current.next.as_ref().unwrap();
                 }
 
-                let head_jump_idx = bytecode.len();
-                bytecode.encode_int(0);
-
-                self.up_scope();
-                self.compile(block, comp_ctx, bytecode);
-                self.down_scope();
-
-
+                bytecode.add_label(end_label);
             }
 
             AstNode::While(WhileStatement { cond, block }) => {
-                let start_len = bytecode.len();
+                let end_label = comp_ctx.new_label();
+                let start_label = comp_ctx.new_label();
+                bytecode.add_label(start_label);
 
                 cond.compile(self, comp_ctx, bytecode);
-                let head_jump_idx = bytecode.len();
-                bytecode.encode_int(0);
+                bytecode.add_instr(ByteCode::JumpFalse(end_label));
 
                 self.up_scope();
-                self.compile(block, comp_ctx, bytecode);
+                self.compile(block, comp_ctx, bytecode, None, Some(end_label));
                 self.down_scope();
 
-                let head_jump_offset  = bytecode.len()-head_jump_idx;
-                bytecode.encode_instr_at(ByteCode::JumpFalse(head_jump_offset as i16),head_jump_idx);
-
-                let back_jump_offset = bytecode.len()-start_len+1;
-                bytecode.encode_instr(ByteCode::Jump(-(back_jump_offset as i16)));
+                bytecode.add_instr(ByteCode::Jump(start_label));
+                bytecode.add_label(end_label);
             }
 
+            AstNode::Break => bytecode.add_instr(ByteCode::Jump(break_label.unwrap())),
+
             AstNode::Function(_) => {}
+
             _ => todo!(),
         }}
 
-        bytecode.encode_instr(ByteCode::Ret);
+        if let Some(instr) = encode_at_end {
+            bytecode.add_instr(instr);
+        }
 
-        for (i,offset_idx) in self.func_load_indices.iter().enumerate() {
-            let offset = bytecode.len()-offset_idx-2;
-            assert_eq!(bytecode.raw[*offset_idx+1],0x0aaaffff,"{:#x} {:#x}",bytecode.raw[*offset_idx+1],0x0aaaffff,);
-            bytecode.raw[(*offset_idx)+1] = offset as u32;
-            bytecode.append(&mut self.sub_func_bytecode[i]);
+        for (i,sub_func_bytecode) in self.sub_func_bytecode.iter_mut().enumerate() {
+            bytecode.add_label(self.sub_func_labels[i]);
+            bytecode.append(sub_func_bytecode);
         }
     }
 }
@@ -247,25 +272,23 @@ impl Expr {
         match self {
             Expr::Ident(name) => comile_ident(&name, ctx, bytecode),
 
-            Expr::NilLiteral => bytecode.encode_instr(ByteCode::LoadNil),
-            Expr::BoolLiteral(x) => bytecode.encode_instr(if *x {ByteCode::LoadTrue} else {ByteCode::LoadFalse}),
+            Expr::NilLiteral => bytecode.add_instr(ByteCode::LoadNil),
+            Expr::BoolLiteral(x) => bytecode.add_instr(if *x {ByteCode::LoadTrue} else {ByteCode::LoadFalse}),
             Expr::IntLiteral(x) => {
-                bytecode.encode_instr(ByteCode::LoadInt);
-                bytecode.encode_int(*x);
+                bytecode.add_instr(ByteCode::LoadInt(*x));
             }
             Expr::FloatLiteral(x) => {
-                bytecode.encode_instr(ByteCode::LoadFloat);
-                bytecode.encode_float(*x);
+                bytecode.add_instr(ByteCode::LoadFloat(*x));
             }
             Expr::StrLiteral(x) => {
                 let idx = comp_ctx.get_idx_of_name(&x);
-                bytecode.encode_instr(ByteCode::LoadStr(idx));
+                bytecode.add_instr(ByteCode::LoadStr(idx));
             } 
 
             Expr::Binary { op, lhs, rhs } => {
                 lhs.compile(ctx,comp_ctx,bytecode);
                 rhs.compile(ctx,comp_ctx,bytecode);
-                bytecode.encode_instr(match op {
+                bytecode.add_instr(match op {
                     Op::Add    => ByteCode::Add,
                     Op::Sub    => ByteCode::Sub,
                     Op::Mul    => ByteCode::Mul,
@@ -286,34 +309,35 @@ impl Expr {
             }
 
             Expr::Call { function, args } => {
-                bytecode.encode_instr(ByteCode::LoadNil);
+                bytecode.add_instr(ByteCode::LoadNil);
                 for arg in args {
                     arg.compile(ctx, comp_ctx, bytecode);
                 }
 
                 function.compile(ctx, comp_ctx, bytecode);
                 
-                bytecode.encode_instr(ByteCode::Call);
+                bytecode.add_instr(ByteCode::Call);
             }
 
             Expr::Function(InlineFunction { args, block }) => {
                 let mut func_bytecode = ByteCodeVec::new();
                 let mut sub_func_ctx = FuncCtx::new(args);
                 sub_func_ctx.prev = Some(ctx);
-                sub_func_ctx.compile(block, comp_ctx, &mut func_bytecode);
+                sub_func_ctx.compile(block, comp_ctx, &mut func_bytecode, Some(ByteCode::Ret), None);
 
                 ctx.sub_func_bytecode.push(func_bytecode);
-                ctx.func_load_indices.push(bytecode.len());
+                let label = comp_ctx.new_label();
+                ctx.sub_func_labels.push(label);
 
-                bytecode.encode_instr(ByteCode::Closure { 
+                bytecode.add_instr(ByteCode::Closure(ClosureArgs{
+                    label, 
                     upval_cap: sub_func_ctx.upvals.len() as u8,
                     arg_count: sub_func_ctx.args.len() as u8
-                });
-                bytecode.encode_int(0x0aaaffff);
+                }));
 
                 for (i,upval) in sub_func_ctx.upvals.iter().enumerate() {
                     comile_ident(&upval, ctx, bytecode);
-                    bytecode.encode_instr(ByteCode::BindUpval(i as u16));
+                    bytecode.add_instr(ByteCode::BindUpval(i as u16));
                 }
             }
 
@@ -323,11 +347,12 @@ impl Expr {
     }
 }
 
+
 fn comile_ident(name:&str,ctx:&mut FuncCtx,bytecode:&mut ByteCodeVec) {
     match ctx.kind_of_ident(name) {
-        VarKind::Local(id) => bytecode.encode_instr(ByteCode::Load(id+1)),
+        VarKind::Local(id) => bytecode.add_instr(ByteCode::Load(id+1)),
         VarKind::Global(_) => todo!(),
-        VarKind::Upval(id) => bytecode.encode_instr(ByteCode::GetUpval(id)),
+        VarKind::Upval(id) => bytecode.add_instr(ByteCode::GetUpval(id)),
     }
 }
 

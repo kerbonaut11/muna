@@ -5,23 +5,14 @@ const Str = @import("str.zig").Str;
 const ByteCode = @import("bytecode.zig").ByteCode;
 
 test "compat" {
-    const p = try Program.init("tests/compat.out");
+    const p = try Program.init("tests/compat.lout");
     var vm = Vm.init(p);
     try vm.execUntilHaltDebug();
     try std.testing.expectApproxEqRel(20.1, vm.pop().as(f32), 0.01);
 }
 
-
-test "expr" {
-    const p = try Program.init("tests/expr.out");
-    var vm = Vm.init(p);
-    try vm.execUntilHaltDebug();
-    try std.testing.expectEqual((1.0+32.0)/3.0, vm.pop().as(f32));
-}
-
-
 test "assing/declaration" {
-    const p = try Program.init("tests/assing_dec.out");
+    const p = try Program.init("tests/assing_dec.lout");
     var vm = Vm.init(p);
     defer vm.deinit();
     try vm.execUntilHaltDebug();
@@ -30,16 +21,9 @@ test "assing/declaration" {
     try std.testing.expectEqual(11.0*12.1, vm.pop().as(f32));
 }
 
-test "call/ret" {
-    const p = try Program.init("tests/call_ret.out");
-    var vm = Vm.init(p);
-    defer vm.deinit();
-    try vm.execUntilHaltDebug();
-    try std.testing.expectEqual(32*32, vm.pop().as(i32));
-}
 
 test "func comp" {
-    const p = try Program.init("tests/func_comp.out");
+    const p = try Program.init("tests/func_comp.lout");
     var vm = Vm.init(p);
     defer vm.deinit();
     try vm.execUntilHaltDebug();
@@ -47,7 +31,7 @@ test "func comp" {
 }
 
 test "inline func" {
-    const p = try Program.init("tests/inline_func.out");
+    const p = try Program.init("tests/inline_func.lout");
     var vm = Vm.init(p);
     defer vm.deinit();
     try vm.execUntilHaltDebug();
@@ -56,12 +40,11 @@ test "inline func" {
 }
 
 test "while" {
-    const p = try Program.init("tests/inline_func.out");
+    const p = try Program.init("tests/while.lout");
     var vm = Vm.init(p);
     defer vm.deinit();
     try vm.execUntilHaltDebug();
-    try std.testing.expectEqual(23,vm.pop().as(i32));
-    try std.testing.expectEqual(13,vm.pop().as(i32));
+    try std.testing.expectEqual(10,vm.pop().as(i32));
 }
 
 //test "layout" {

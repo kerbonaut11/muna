@@ -5,6 +5,8 @@ const Program = @import("bytecode.zig").Program;
 const Str = @import("str.zig").Str;
 const Func = @import("func.zig").Func;
 const ReturnCode = @import("err.zig").ReturnCode;
+const exec_fn = @import("exec.zig").exec;
+const Err = @import("err.zig").Err;
 
 pub const Vm = struct {
     const Self = @This();
@@ -62,14 +64,20 @@ pub const Vm = struct {
 
     pub fn exec(self:*Self) !void {
         const instr = self.program.next(ByteCode);
-        try @import("exec.zig").exec(instr, self);
+        try exec_fn(instr, self);
     }
 
     pub fn execDebug(self:*Self) !void {
         self.printLocals();
         const instr = self.program.next(ByteCode);
         std.debug.print("executing:{} {} \n", .{self.program.ip-self.program.list.items.ptr,instr});
-        try @import("exec.zig").exec(instr, self);
+        exec_fn(instr, self) catch |err| switch (err) {
+            ReturnCode.halt => return err,
+            else => {
+                std.debug.print("error! \n{}\n", .{Err.global});
+                return err;
+            }
+        };
         std.debug.print("\n", .{});
     }
 
@@ -132,6 +140,13 @@ pub const Vm = struct {
         const rhs = self.pop();
         const lhs = self.top().*;
         self.top().* = try op(lhs,rhs);
+    }
+
+    pub fn compOp(self:*Self,comptime op:fn(Var,Var) ReturnCode!bool,expected:bool) !void {
+        const rhs = self.pop();
+        const lhs = self.top().*;
+        const result = try op(lhs,rhs);
+        self.top().* = Var.from(result == expected);
     }
 };
 

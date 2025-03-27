@@ -1,13 +1,15 @@
-#[derive(Debug,Clone, Copy,PartialEq, Eq)]
+use crate::asm::LabelId;
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[repr(u8)]
 pub enum ByteCode {
 
-    LoadNil              = 0,
-    LoadTrue             = 1,
-    LoadFalse            = 2,
-    LoadInt              = 3,
-    LoadFloat            = 4,
-    LoadStr(u16)         = 6,
+    LoadNil        = 0,
+    LoadTrue       = 1,
+    LoadFalse      = 2,
+    LoadInt(i32)   = 3,
+    LoadFloat(f32) = 4,
+    LoadStr(u16)   = 6,
 
     Load(u16)  = 7,
     Write(u16) = 8,
@@ -25,10 +27,7 @@ pub enum ByteCode {
     LessEq(bool) = 27,
     Eq(bool)     = 28,
 
-    Closure{
-        upval_cap:u8,
-        arg_count:u8,
-    } = 17,
+    Closure(ClosureArgs) = 17,
     Call    = 18,
     Ret     = 19,
 
@@ -36,16 +35,17 @@ pub enum ByteCode {
     GetUpval(u16)  = 21,
     SetUpval(u16)  = 22,
 
-    Jump(i16)      = 23,
-    JumpTrue(i16)  = 24,
-    JumpFalse(i16) = 25,
+    Jump(LabelId)      = 23,
+    JumpTrue(LabelId)  = 24,
+    JumpFalse(LabelId) = 25,
 
     Halt = 30,
 }
 
-
-impl Into<u32> for ByteCode {
-    fn into(self) -> u32 {
-        unsafe{std::mem::transmute(self)}
-    }
+#[repr(packed)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ClosureArgs{
+    pub label:LabelId,
+    pub upval_cap:u8,
+    pub arg_count:u8,
 }

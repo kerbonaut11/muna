@@ -32,6 +32,10 @@ pub fn exec(instr:ByteCode,vm: *Vm) !void {
             vm.top().* = Var.from(try ops.concat(lhs,rhs));
         },
 
+        .eq      => |expected| try vm.compOp(ops.eq, expected),
+        .less    => |expected| try vm.compOp(ops.less, expected),
+        .less_eq => |expected| try vm.compOp(ops.less_eq, expected),
+
         .closure => |arg| {
             const offset = vm.program.next(u32);
             std.debug.print("{}\n", .{offset});

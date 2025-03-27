@@ -136,7 +136,7 @@ pub fn eq(lhs:Var,rhs:Var) !bool {
     return switch (tycomb(lhs.tag(), rhs.tag())) {
         tycomb(.nil, .nil)     => true,
         tycomb(.bool, .bool)   => lhs.as(bool) == rhs.as(bool),
-        tycomb(.str, .str)     => lhs.as(Str).asSlice() == rhs.as(Str).asSlice(),
+        tycomb(.str, .str)     => std.mem.eql(u8,lhs.as(Str).asSlice(),rhs.as(Str).asSlice()),
 
         tycomb(.int, .int)     => lhs.as(i32)      < rhs.as(i32),
         tycomb(.int, .float)   => lhs.intToFloat() < rhs.as(f32),

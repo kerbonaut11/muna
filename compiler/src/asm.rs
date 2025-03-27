@@ -1,61 +1,76 @@
-use std::{collections::HashMap, io::{Read, Write}};
+use std::{collections::HashMap, io::{Read, Write}, num::NonZeroU32, ptr::slice_from_raw_parts};
 
-use crate::bytecode::ByteCode;
+use crate::bytecode::{self, ByteCode, ClosureArgs};
 
 pub struct ByteCodeVec{
-    pub raw:Vec<u32>,
+    code:Vec<(ByteCode,Option<LabelId>)>
 }
 
 impl ByteCodeVec {
     pub fn new() -> Self {
-        return Self{raw:vec![]};
+        Self {
+            code:vec![]
+        }
     }
 
-    pub fn encode_instr(&mut self,x:ByteCode) {
-        println!("{}:{:?}",self.raw.len(),x);
-        self.raw.push(encode_instr_to_u32(x));
+    pub fn add_instr(&mut self,x:ByteCode) {
+        self.code.push((x,None));
     }
 
-    pub fn encode_int(&mut self,x:i32) {
-        self.raw.push(unsafe{std::mem::transmute(x)});
+    pub fn add_instr_at(&mut self,x:ByteCode,i:usize) {
+        self.code[i].0 = x;
     }
 
-    pub fn encode_float(&mut self,x:f32) {
-        self.raw.push(unsafe{std::mem::transmute(x)});
+    pub fn add_label(&mut self,l:LabelId) {
+        self.code.last_mut().unwrap().1 = Some(l);
     }
 
-    pub fn encode_instr_at(&mut self,x:ByteCode,i:usize) {
-        println!("{}:{:?}",i,x);
-        self.raw[i] = encode_instr_to_u32(x);
-    }
-
-    pub fn encode_int_at(&mut self,x:i32,i:usize) {
-        self.raw[i] = unsafe{std::mem::transmute(x)};
-    }
-
-    pub fn encode_float_at(&mut self,x:f32,i:usize) {
-        self.raw[i] = unsafe{std::mem::transmute(x)};
+    pub fn add_label_at(&mut self,l:LabelId,i:usize) {
+        self.code[i].1 = Some(l);
     }
 
     pub fn append(&mut self,other: &mut Self) {
-        self.raw.append(&mut other.raw);
+        self.code.append(&mut other.code);
     }
 
     pub fn len(&self) -> usize {
-        self.raw.len()
+        self.code.len()
+    }
+
+    pub fn print(&self) {
+        let mut i = 0;
+        for (instr,label) in &self.code {
+            println!("{}: {:?} ",i,instr);
+            if let Some(label) = label {
+                println!("label {:?}:",label.0);
+            }
+            i += instr_width(instr);
+        }
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[repr(transparent)]
+pub struct LabelId(NonZeroU32);
+
 
 pub struct CompileCtx {
-    name_map:HashMap<Box<str>,u16>
+    name_map:HashMap<Box<str>,u16>,
+    next_label_id:NonZeroU32,
 }
 
 impl CompileCtx {
     pub fn new() -> Self {
         Self{
-            name_map:HashMap::new()
+            name_map:HashMap::new(),
+            next_label_id: NonZeroU32::new(1).unwrap(),
         }
+    }
+
+    pub fn new_label(&mut self) -> LabelId {
+        let label = LabelId(self.next_label_id);
+        self.next_label_id = self.next_label_id.checked_add(1).unwrap();
+        label
     }
 
     pub fn get_idx_of_name(&mut self,name:&str) -> u16 {
@@ -81,61 +96,93 @@ impl CompileCtx {
         }
     }
 
-    pub fn write_to_file(&self,bytecode:&ByteCodeVec,path:&str) {
+    pub fn write_to_file(&self, bytecode:ByteCodeVec, path:&str) {
         use std::fs;
 
         _ = fs::remove_file(path);
         let mut f = fs::File::create_new(path).unwrap();
         self.encode_name_table(&mut f);
 
-        _ = f.write_all(unsafe {
-           let x = std::slice::from_raw_parts(std::mem::transmute(bytecode.raw.as_ptr()), bytecode.len()*4);
-           x 
-        });
-    }
-}
+        let mut encoded_bc:Vec<u32> = Vec::with_capacity(bytecode.len()*2);
+        let mut label_map:HashMap<LabelId,usize> = HashMap::with_capacity(bytecode.code.len());
 
-
-fn encode_instr_to_u32(x:ByteCode) -> u32 {
-    use std::ptr;
-    unsafe {
-        let mut out = [0,0,0,0];
-        out[2] = *(ptr::from_ref(&x) as *const u8);
-        match x {
-            ByteCode::Load(x) | ByteCode::Write(x) | ByteCode::LoadStr(x) | 
-            ByteCode::BindUpval(x) | ByteCode::GetUpval(x) | ByteCode::SetUpval(x) => {
-                out[0] = (x & 0xFF)as u8;
-                out[1] = (x >> 8)as u8;
+        let mut bytecode_len = 0;
+        for (instr,label) in &bytecode.code {
+            bytecode_len += instr_width(&instr);
+            if let Some(label) = label  {
+                label_map.insert(*label, bytecode_len);   
             }
-
-            ByteCode::Jump(x) | ByteCode::JumpFalse(x) | ByteCode::JumpTrue(x) => {
-                out[0] = (x & 0xFF)as u8;
-                out[1] = (x >> 8)as u8;
-            }
-
-            ByteCode::Less(x) | ByteCode::LessEq(x) | ByteCode::Eq(x) => {
-                out[0] = x as u8;
-            }
-
-            ByteCode::Closure { upval_cap, arg_count } => {
-                out[0] = upval_cap;
-                out[1] = arg_count;
-            }
-
-            _ => {},
         }
-        std::mem::transmute(out)
+
+        for (instr,_) in &bytecode.code {
+            unsafe {
+                use std::mem::transmute;
+                let mut head = [0,0,0,0];
+                head[2] = *(std::ptr::from_ref(instr) as *const u8);
+
+                match *instr {
+                    ByteCode::LoadInt(x) => {
+                        encoded_bc.push(transmute(head));
+                        encoded_bc.push(transmute(x));
+                    }
+        
+                    ByteCode::LoadFloat(x) => {
+                        encoded_bc.push(transmute(head));
+                        encoded_bc.push(transmute(x));
+                    }
+        
+                    ByteCode::Load(x) | ByteCode::Write(x) | ByteCode::LoadStr(x) | 
+                    ByteCode::BindUpval(x) | ByteCode::GetUpval(x) | ByteCode::SetUpval(x) => {
+                        head[0] = (x & 0xFF)as u8;
+                        head[1] = (x >> 8)as u8;
+                        encoded_bc.push(transmute(head));
+                    }
+        
+                    ByteCode::Jump(x) | ByteCode::JumpFalse(x) | ByteCode::JumpTrue(x) => {
+                        let offset = (*label_map.get(&x).unwrap() as i16) - (encoded_bc.len() as i16) - 1;
+                        head[0] = (offset & 0xFF)as u8;
+                        head[1] = (offset >> 8)as u8;
+                        encoded_bc.push(transmute(head));
+                    }
+        
+                    ByteCode::Less(x) | ByteCode::LessEq(x) | ByteCode::Eq(x) => {
+                        head[0] = x as u8;
+                        encoded_bc.push(transmute(head));
+                    }
+        
+                    ByteCode::Closure( ClosureArgs{ label, upval_cap, arg_count }) => {
+                        head[0] = upval_cap;
+                        head[1] = arg_count;
+                        let offset = (*label_map.get(&label).unwrap() as i32) - (encoded_bc.len() as i32) - 2;
+                        encoded_bc.push(transmute(head));
+                        encoded_bc.push(transmute(offset as u32));
+                    }
+        
+                    _ => encoded_bc.push(transmute(head)),
+                }
+            }
+        }
+
+        let slice = unsafe {
+            &*slice_from_raw_parts(encoded_bc.as_ptr() as *const u8, encoded_bc.len()*4)
+        }; 
+
+        f.write_all(slice).unwrap();
     }
 }
+
+fn instr_width(instr:&ByteCode) -> usize {
+    match instr {
+        ByteCode::LoadInt(_) | ByteCode::LoadFloat(_) | ByteCode::Closure(_) => 2,
+        _ => 1
+    }
+}
+
 
 #[test]
-fn layout_test() {
-    //110102
-    //7ffaa
-    let x:u32 = unsafe{std::mem::transmute(ByteCode::Load(0xffaa))};
-    println!("{:x}",x);
-    println!("{:x}",encode_instr_to_u32(ByteCode::Load(0xffaa)));
-    let x:u32 = unsafe{std::mem::transmute(ByteCode::Closure { arg_count: 1, upval_cap: 2 })};
-    println!("{:x}",x);
-    println!("{:x}",encode_instr_to_u32(ByteCode::Closure { arg_count: 1, upval_cap: 2 }));
+fn layout() {
+    unsafe {
+        println!("{:#x}",std::mem::transmute::<ByteCode,u64>(ByteCode::LoadInt(0xaaff)));
+        assert_eq!(*(std::ptr::from_ref(&ByteCode::LoadInt(0xffaa)) as *const u8),3);
+    }
 }
