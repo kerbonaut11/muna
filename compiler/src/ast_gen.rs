@@ -6,6 +6,7 @@ pub type Block = Vec<AstNode>;
 pub enum AstNode {
     Declaration(Declaration),
     Assing(Assing),
+    Call(Expr),
     If(IfElseStatement),
     For(ForStatement),
     While(WhileStatement),
@@ -65,28 +66,6 @@ pub enum IterType {
 }
 
 
-fn find_start_of_next_statement(tokens:&[Token]) -> usize {
-    let mut i = 1usize;
-    let mut depth = tokens[0].brack_depth();
-    loop {
-        if i == tokens.len() {
-            return i;
-        }
-        
-        let prev = &tokens[i-1];
-        let next = &tokens[i];
-        if depth == 0 {
-            if Token::is_end_of_expr(prev, next) {
-                return i;
-            }
-        } else if depth < 0 {
-            return i;
-        };
-
-        depth += next.brack_depth();
-        i += 1;
-    }
-}
 
 
 pub fn parse_block(tokens:&[Token]) -> Result<Block> {
@@ -100,7 +79,7 @@ pub fn parse_block(tokens:&[Token]) -> Result<Block> {
             break;
         }
         let (statement,offset) = parse_statement(&tokens[i..])?;
-        i += offset;
+        i += offset+1;
         //println!("{} {}",i,offset);
         block.push(statement);
     }
@@ -112,12 +91,12 @@ fn parse_statement(tokens:&[Token]) -> Result<(AstNode,usize)> {
     match tokens[0] {
         Token::If => {
             let (s,i) = parse_if_else(tokens,0)?;
-            Ok((AstNode::If(s.unwrap()),i+1))
+            Ok((AstNode::If(s.unwrap()),i))
         }
 
         Token::While => {
             let (s,i) = parse_while(tokens)?;
-            Ok((AstNode::While(s),i+1))
+            Ok((AstNode::While(s),i))
         }
 
         Token::Break => {
@@ -125,34 +104,38 @@ fn parse_statement(tokens:&[Token]) -> Result<(AstNode,usize)> {
         }
 
         Token::Return => {
-            let i = find_start_of_next_statement(&tokens[1..])+1;
-            Ok((AstNode::Return(Some(Expr::parse(&tokens[1..i])?)),i))
+            let end_idx = Token::find_outside_of_brackets(tokens, &Token::Endline).unwrap();
+            Ok((AstNode::Return(Some(Expr::parse(&tokens[1..end_idx])?)),end_idx))
         }
 
         Token::For => {
             let (s,i) = parse_for(tokens)?;
-            Ok((AstNode::For(s),i+1))
+            Ok((AstNode::For(s),i))
         }
 
         Token::Ident(_) => {
-            let (s,i) = parse_assing(tokens)?;
-            Ok((AstNode::Assing(s),i+1))
+            let end_idx = Token::find_outside_of_brackets(tokens, &Token::Endline).unwrap();
+            match Token::find_outside_of_brackets(tokens, &Token::Endline)  {
+                Some(_) => Ok((AstNode::Assing(parse_assing(&tokens[..end_idx])?),end_idx)),
+                None => Ok((AstNode::Call(Expr::parse(&tokens[..end_idx])?),end_idx))
+            }
         }
         
         Token::Local => {
             if tokens[1] != Token::Function { 
-                let (s,i) = parse_declaration(tokens)?;
-                Ok((AstNode::Declaration(s),i))
+                let end_idx = Token::find_outside_of_brackets(tokens, &Token::Endline).unwrap();
+                let s = parse_declaration(&tokens[..end_idx])?;
+                Ok((AstNode::Declaration(s),end_idx))
             } else {
                 let (mut f,i) = parse_function(&tokens[1..])?;
                 f.is_local = true;
-                Ok((AstNode::Function(f),i+2))
+                Ok((AstNode::Function(f),i+1))
             }
         }
 
         Token::Function => {
             let (f,i) = parse_function(tokens)?;
-            Ok((AstNode::Function(f),i+1))
+            Ok((AstNode::Function(f),i))
         }
 
         _ => panic!("invalid token {:?} {:?}",tokens[0],tokens)
@@ -273,38 +256,40 @@ fn parse_for(tokens:&[Token]) -> Result<(ForStatement,usize)> {
 }
 
 
-fn parse_list_of_expr(tokens:&[Token]) -> Result<(Vec<Expr>,usize)> {
-    let start_of_next_statement = find_start_of_next_statement(tokens);
-    let expr = Expr::parse(&tokens[..start_of_next_statement])?;
-    if tokens.len() > start_of_next_statement {
-        if tokens[start_of_next_statement] == Token::Comma {
-            let (mut exprs,offset) = parse_list_of_expr(&tokens[start_of_next_statement+1..])?;
-            exprs.insert(0, expr);
-            return Ok((exprs,start_of_next_statement+offset+1));
+fn parse_list_of_expr(tokens:&[Token]) -> Result<Vec<Expr>> {
+    let mut out = vec![];
+    parse_list_of_expr_rec(tokens,&mut out)?;
+    Ok(out)
+}
+
+fn parse_list_of_expr_rec(tokens:&[Token], result: &mut Vec<Expr>) -> Result<()> {
+    if tokens.is_empty() {return Ok(());}
+    match Token::find_outside_of_brackets(tokens, &Token::Comma) {
+        Some(i) => {
+            result.push(Expr::parse(&tokens[..i])?);
+            Ok(())
+        }
+
+        None => {
+            result.push(Expr::parse(tokens)?);
+            Ok(())
         }
     }
-    Ok((vec![expr],start_of_next_statement))
 }
 
 
-fn parse_assing(tokens:&[Token]) -> Result<(Assing,usize)> {
+fn parse_assing(tokens:&[Token]) -> Result<Assing> {
     let assing_idx = Token::find(tokens, &Token::Assing).unwrap();
-    let (lhs,offset1) = parse_list_of_expr(&tokens[..assing_idx])?;
-    let (rhs,offset2) = parse_list_of_expr(&tokens[offset1+1..])?;
-    Ok((
-        Assing{lhs,rhs},
-        offset1+offset2
-    ))
+    let lhs = parse_list_of_expr(&tokens[..assing_idx])?;
+    let rhs = parse_list_of_expr(&tokens[assing_idx+1..])?;
+    Ok(Assing{lhs,rhs})
 }
 
-fn parse_declaration(tokens:&[Token]) -> Result<(Declaration,usize)> {
+fn parse_declaration(tokens:&[Token]) -> Result<Declaration> {
     let assing_idx = Token::find(tokens, &Token::Assing).unwrap();
     let lhs = Token::parse_list_of_idents(&tokens[1..assing_idx]);
-    let (rhs,offset) = parse_list_of_expr(&tokens[assing_idx+1..])?;
-    Ok((
-        Declaration{lhs,rhs},
-        assing_idx+1+offset
-    ))
+    let rhs = parse_list_of_expr(&tokens[assing_idx+1..])?;
+    Ok(Declaration{lhs,rhs})
 }
 
 fn parse_function(tokens:&[Token]) -> Result<(Function,usize)> {
@@ -330,22 +315,6 @@ fn parse_function(tokens:&[Token]) -> Result<(Function,usize)> {
     ));
 }
 
-
-#[test]
-fn test_find_start_of_next_statement() {
-    use super::tokenizer;
-    let tokens = tokenizer::parse("map(function(x) x+1 end, x[i+2+3.31]) local x = 10\n").unwrap();
-    let i = find_start_of_next_statement(&tokens);
-    println!("{} {:?}",i,tokens[i]);
-
-    let tokens = tokenizer::parse("function(x) x+1 end if y = 10\n").unwrap();
-    let i = find_start_of_next_statement(&tokens);
-    println!("{} {:?}",i,tokens[i]);
-
-    let tokens = tokenizer::parse("function(x) x+1 end[{x=10,y=\"a\"}] function").unwrap();
-    let i = find_start_of_next_statement(&tokens);
-    println!("{} {:?}",i,tokens[i]);
-}
 
 #[test]
 fn if_test() {
@@ -404,22 +373,11 @@ fn while_test() {
     })
 }
 
-#[test]
-fn expr_list_test() {
-    use super::tokenizer;
-    let tokens = tokenizer::parse("x,(1*3),f(a,b) local").unwrap();
-    let (x,i) = parse_list_of_expr(&tokens).unwrap();
-    assert_eq!(tokens[i],Token::Local);
-    assert!(x.len() == 3);
-    for expr in x {
-        expr.display_tree(0);
-    }
-}
 
 #[test]
 fn return_break_test() {
     use super::tokenizer;
-    let tokens = tokenizer::parse("return x+1 break").unwrap();
+    let tokens = tokenizer::parse("return x+1; break;").unwrap();
     let x = parse_block(&tokens).unwrap();
     assert!(x.len() == 2);
     match &x[0] {
@@ -439,7 +397,7 @@ fn return_break_test() {
 #[test]
 fn for_test() {
     use super::tokenizer;
-    let tokens = tokenizer::parse("for k,v in kvpairs a[x] {} break").unwrap();
+    let tokens = tokenizer::parse("for k,v in kvpairs a[x] {} break;").unwrap();
     let x = parse_block(&tokens).unwrap();
     assert!(x.len() == 2);
     match &x[0] {
@@ -466,7 +424,7 @@ fn for_test() {
 #[test]
 fn assing_test() {
     use super::tokenizer;
-    let tokens = tokenizer::parse("x,y[i] = f(x),foo break").unwrap();
+    let tokens = tokenizer::parse("x,y[i] = f(x),foo; break;").unwrap();
     let x = parse_block(&tokens).unwrap();
     assert!(x.len() == 2);
     match &x[0] {
@@ -483,7 +441,7 @@ fn assing_test() {
         _ => panic!()
     }
 
-    let tokens = tokenizer::parse("local x = function(x,y) {return x+y} break").unwrap();
+    let tokens = tokenizer::parse("local x = function(x,y) {return x+y;}; break;").unwrap();
     let x = parse_block(&tokens).unwrap();
     assert_eq!(x.len(),2);
     match &x[0] {
@@ -505,7 +463,7 @@ fn assing_test() {
 #[test]
 fn function_test() {
     use super::tokenizer;
-    let tokens = tokenizer::parse("local function f(a,b,hello) {return 1,2,\"e\" } break").unwrap();
+    let tokens = tokenizer::parse("local function f(a,b,hello) {return {1,2,\"e\"}; } break;").unwrap();
     let x = parse_block(&tokens).unwrap();
     assert!(x.len() == 2);
     match &x[0] {
