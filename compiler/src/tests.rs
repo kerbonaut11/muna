@@ -29,7 +29,11 @@ pub fn compatibility_test_file() {
 
 #[test]
 pub fn assing_declaration_test_file() {
-    compile_to_file("local x,y,z = 10,12.1,\"hello\" x,y,z = (x+1)*y,x,z..\"world\"..10.1 ","../tests/assing_dec.lout");
+    compile_to_file("
+        local x,y,z = 10,12.1,\"hello\";
+        x,y,z = (x+1)*y,x,z..\"world\"..10.1;
+        ","../tests/assing_dec.lout"
+    );
 }
 
 
@@ -37,14 +41,14 @@ pub fn assing_declaration_test_file() {
 pub fn func_comp_test_file() {
     compile_to_file("
         function a(x) {
-            return b(x+1)
+            return b(x+1);
         }
 
         function b(x) {
-            return x*2
+            return x*2;
         }
 
-        local x = a(10) 
+        local x = a(10); 
     ","../tests/func_comp.lout");
 }
 
@@ -53,25 +57,25 @@ pub fn func_comp_test_file() {
 pub fn inline_func_test_file() {
     compile_to_file("
         function new_counter(x) {
-            local step = 10
+            local step = 10;
             return function() {
-                x = x+step
-                return x
-            }
+                x = x+step;
+                return x;
+            };
         }
 
-        local counter = new_counter(3)
-        local x = counter()
-        local y = counter()
+        local counter = new_counter(3);
+        local x = counter();
+        local y = counter();
     ","../tests/inline_func.lout");
 }
 
 #[test]
 pub fn while_test_file() {
     compile_to_file("
-        local i = 0
+        local i = 0;
         while 10 > i {
-            i = i+1
+            i = i+1;
         }
     ","../tests/while.lout");
 }
@@ -79,12 +83,12 @@ pub fn while_test_file() {
 #[test]
 pub fn if_else_test_file() {
     compile_to_file("
-        local x = true
-        local y = 1
+        local x = true;
+        local y = 1;
         if x {
-            y = 2
+            y = 2;
         } else {
-            y = 3 
+            y = 3; 
         }
     ","../tests/while.lout");
 }

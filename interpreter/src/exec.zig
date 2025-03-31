@@ -32,6 +32,13 @@ pub fn exec(instr:ByteCode,vm: *Vm) !void {
             vm.top().* = Var.from(try ops.concat(lhs,rhs));
         },
 
+        .bin_and => try vm.binaryOp(ops.bin_and),
+        .bin_or  => try vm.binaryOp(ops.bin_or),
+        .bin_xor => try vm.binaryOp(ops.bin_xor),
+
+        .bool_and => try vm.compOp(ops.bool_and, true),
+        .bool_or  => try vm.compOp(ops.bool_and, false),
+
         .eq      => |expected| try vm.compOp(ops.eq, expected),
         .less    => |expected| try vm.compOp(ops.less, expected),
         .less_eq => |expected| try vm.compOp(ops.less_eq, expected),

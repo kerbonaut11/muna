@@ -23,9 +23,21 @@ pub enum ByteCode {
     Mod    = 15,
     Concat = 16,
 
+    And    = 31,
+    Or     = 32,
+    Xor    = 33,
+
+    BoolAnd = 34,
+    BoolOr  = 35,
+
     Less(bool)   = 26,
     LessEq(bool) = 27,
     Eq(bool)     = 28,
+
+    Neg      = 36,
+    Not      = 37,
+    BoolNot  = 38,
+    Len      = 39,
 
     Closure(ClosureArgs) = 17,
     Call    = 18,

@@ -21,7 +21,8 @@ pub const Err = union(ErrType) {
     opTypeErr:struct {
         op:enum {
             add,sub,div,idiv,mul,pow,mod,concat,
-            eq,compare
+            bin_and,bin_or,bin_xor,
+            compare
         },
         rhs:Var.Type,
         lhs:Var.Type,

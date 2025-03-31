@@ -132,6 +132,57 @@ pub fn toStr(x:Var) !Str {
     };
 }
 
+
+pub fn bin_and(lhs:Var,rhs:Var) !Var {
+    return switch (tycomb(lhs.tag(), rhs.tag())) {
+        tycomb(.int, .int) => Var.from(lhs.as(i32) & rhs.as(i32)),
+        else => {
+            Err.global = Err{.opTypeErr = .{
+                .op = .bin_and,
+                .lhs = lhs.tag(),
+                .rhs = rhs.tag()
+            }};
+            return error.panic;
+        },
+    };
+}
+
+pub fn bin_or(lhs:Var,rhs:Var) !Var {
+    return switch (tycomb(lhs.tag(), rhs.tag())) {
+        tycomb(.int, .int) => Var.from(lhs.as(i32) | rhs.as(i32)),
+        else => {
+            Err.global = Err{.opTypeErr = .{
+                .op = .bin_or,
+                .lhs = lhs.tag(),
+                .rhs = rhs.tag()
+            }};
+            return error.panic;
+        },
+    };
+}
+
+pub fn bin_xor(lhs:Var,rhs:Var) !Var {
+    return switch (tycomb(lhs.tag(), rhs.tag())) {
+        tycomb(.int, .int) => Var.from(lhs.as(i32) ^ rhs.as(i32)),
+        else => {
+            Err.global = Err{.opTypeErr = .{
+                .op = .bin_xor,
+                .lhs = lhs.tag(),
+                .rhs = rhs.tag()
+            }};
+            return error.panic;
+        },
+    };
+}
+
+pub fn bool_and(lhs:Var,rhs:Var) !bool {
+    return try truthy(lhs) and try truthy(rhs);
+}
+
+pub fn bool_or(lhs:Var,rhs:Var) !bool {
+    return try truthy(lhs) or try truthy(rhs);
+}
+
 pub fn eq(lhs:Var,rhs:Var) !bool {
     return switch (tycomb(lhs.tag(), rhs.tag())) {
         tycomb(.nil, .nil)     => true,

@@ -267,6 +267,7 @@ fn parse_list_of_expr_rec(tokens:&[Token], result: &mut Vec<Expr>) -> Result<()>
     match Token::find_outside_of_brackets(tokens, &Token::Comma) {
         Some(i) => {
             result.push(Expr::parse(&tokens[..i])?);
+            parse_list_of_expr_rec(&tokens[i+1..], result)?;
             Ok(())
         }
 

@@ -23,9 +23,21 @@ pub const ByteCodeType = enum(u8) {
     mod    = 15,
     concat = 16,
 
+    bin_and  = 31,
+    bin_or   = 32,
+    bin_xor  = 33,
+
+    bool_and = 34,
+    bool_or  = 35,
+
     less    = 26,
     less_eq = 27,
     eq      = 28,
+
+    neg      = 36,
+    not      = 37,
+    bool_not = 38,
+    len      = 39,
 
     closure = 17,
     call    = 18,
@@ -65,9 +77,21 @@ pub const ByteCode = union(ByteCodeType) {
     mod:void,
     concat:void,
 
+    bin_and:void,
+    bin_or:void,
+    bin_xor:void,
+
+    bool_and:void,
+    bool_or:void,  
+
     less:bool,
     less_eq:bool,
     eq:bool,
+
+    neg:void,      
+    not:void,      
+    bool_not:void, 
+    len:void,      
 
     closure: packed struct {
         upval_cap:u8,

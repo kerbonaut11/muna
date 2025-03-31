@@ -142,6 +142,10 @@ pub const Vm = struct {
         self.top().* = try op(lhs,rhs);
     }
 
+    pub fn unaryOp(self:*Self,comptime op:fn(Var) ReturnCode!Var) !void {
+        self.top().* = try op(self.top().*);
+    }
+
     pub fn compOp(self:*Self,comptime op:fn(Var,Var) ReturnCode!bool,expected:bool) !void {
         const rhs = self.pop();
         const lhs = self.top().*;
