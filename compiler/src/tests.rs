@@ -93,4 +93,13 @@ pub fn if_else_test_file() {
     ","../tests/while.lout");
 }
 
+#[test]
+pub fn table_test_file() {
+    compile_to_file("
+        local x = {};
+        local y = {1,1.0,{},x=10};
+        x.x,y[2] = 10,x;
+    ","../tests/table.lout");
+}
+
 

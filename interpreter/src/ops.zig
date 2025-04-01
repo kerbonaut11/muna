@@ -76,6 +76,20 @@ pub fn div(lhs:Var,rhs:Var) !Var {
     };
 }
 
+pub fn idiv(lhs:Var,rhs:Var) !Var {
+    return switch (tycomb(lhs.tag(), rhs.tag())) {
+        tycomb(.int, .int) => Var.from(lhs.as(i32) / rhs.as(i32)),
+        else => {
+            Err.global = Err{.opTypeErr = .{
+                .op = .idiv,
+                .lhs = lhs.tag(),
+                .rhs = rhs.tag()
+            }};
+            return error.panic;
+        },
+    };
+}
+
 pub fn pow(lhs:Var,rhs:Var) !Var {
     return switch (tycomb(lhs.tag(), rhs.tag())) {
         tycomb(.int, .int)     => Var.from(std.math.pow(i32,lhs.as(i32),     rhs.as(i32),)),
@@ -110,8 +124,9 @@ pub fn mod(lhs:Var,rhs:Var) !Var {
     };
 }
 
-pub fn concat(lhs:Var,rhs:Var) !Str {
-    return Str.initConcat((try toStr(lhs)).asSlice(), (try toStr(rhs)).asSlice());
+pub fn concat(lhs:Var,rhs:Var) !Var {
+    const str = Str.initConcat((try toStr(lhs)).asSlice(), (try toStr(rhs)).asSlice());
+    return Var.from(str);
 }
 
 pub fn toStr(x:Var) !Str {
@@ -167,6 +182,35 @@ pub fn bin_xor(lhs:Var,rhs:Var) !Var {
         else => {
             Err.global = Err{.opTypeErr = .{
                 .op = .bin_xor,
+                .lhs = lhs.tag(),
+                .rhs = rhs.tag()
+            }};
+            return error.panic;
+        },
+    };
+}
+
+pub fn shl(lhs:Var,rhs:Var) !Var {
+    return switch (tycomb(lhs.tag(), rhs.tag())) {
+        tycomb(.int, .int) => Var.from(lhs.as(i32) << rhs.as(i32)),
+        else => {
+            Err.global = Err{.opTypeErr = .{
+                .op = .shl,
+                .lhs = lhs.tag(),
+                .rhs = rhs.tag()
+            }};
+            return error.panic;
+        },
+    };
+}
+
+
+pub fn shr(lhs:Var,rhs:Var) !Var {
+    return switch (tycomb(lhs.tag(), rhs.tag())) {
+        tycomb(.int, .int) => Var.from(lhs.as(i32) >> rhs.as(i32)),
+        else => {
+            Err.global = Err{.opTypeErr = .{
+                .op = .shr,
                 .lhs = lhs.tag(),
                 .rhs = rhs.tag()
             }};
@@ -238,5 +282,47 @@ pub fn truthy(x:Var) !bool {
         .nil  => false,
         .bool => x.as(bool),
         else => true
+    };
+}
+
+
+pub fn neg(x:Var) !Var {
+    return switch (x.tag()) {
+        .int => Var.from(-x.as(i32)),
+        .float => Var.from(-x.as(f32)),
+        else => {
+            Err.global = Err{.unaryTypeErr = .{
+                .op = .neg,
+                .ty = x.tag()
+            }};
+            return error.panic;
+        }
+    };
+}
+
+pub fn bin_not(x:Var) !Var {
+    return switch (x.tag()) {
+        .int => Var.from(!x.as(i32)),
+        else => {
+            Err.global = Err{.unaryTypeErr = .{
+                .op = .bin_not,
+                .ty = x.tag()
+            }};
+            return error.panic;
+        }
+    };
+}
+
+pub fn len(x:Var) !Var {
+    return switch (x.tag()) {
+        .str   => Var.from(x.as(Str).getLen()),
+        .table => error.todo,
+        else => {
+            Err.global = Err{.unaryTypeErr = .{
+                .op = .len,
+                .ty = x.tag()
+            }};
+            return error.panic;
+        }
     };
 }

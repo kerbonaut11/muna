@@ -13,6 +13,7 @@ pub enum ByteCode {
 
     Load(u16)  = 7,
     Write(u16) = 8,
+    Pop        = 42,
 
     Add    =  9,
     Sub    = 10,
@@ -23,9 +24,11 @@ pub enum ByteCode {
     Mod    = 15,
     Concat = 16,
 
-    And    = 31,
-    Or     = 32,
-    Xor    = 33,
+    And = 31,
+    Or  = 32,
+    Xor = 33,
+    Shl = 40,
+    Shr = 41,
 
     BoolAnd = 34,
     BoolOr  = 35,
@@ -38,6 +41,13 @@ pub enum ByteCode {
     Not      = 37,
     BoolNot  = 38,
     Len      = 39,
+
+    NewTable(u16) = 43,
+    Get = 44,
+    GetPop = 45,
+    Set = 46,
+    SetPop = 47,
+    GetMethod(u16) = 48,
 
     Closure(ClosureArgs) = 17,
     Call    = 18,

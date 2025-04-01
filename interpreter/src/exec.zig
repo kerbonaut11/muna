@@ -20,21 +20,20 @@ pub fn exec(instr:ByteCode,vm: *Vm) !void {
         .load  => |i| vm.push(vm.bp[i]),
         .write => |i| vm.bp[i] = vm.pop(),
 
-        .add => try vm.binaryOp(ops.add),
-        .sub => try vm.binaryOp(ops.sub),
-        .mul => try vm.binaryOp(ops.mul),
-        .div => try vm.binaryOp(ops.div),
-        .pow => try vm.binaryOp(ops.pow),
-        .mod => try vm.binaryOp(ops.mod),
-        .concat =>  {
-            const rhs = vm.pop();
-            const lhs = vm.top().*;
-            vm.top().* = Var.from(try ops.concat(lhs,rhs));
-        },
+        .add    => try vm.binaryOp(ops.add),
+        .sub    => try vm.binaryOp(ops.sub),
+        .mul    => try vm.binaryOp(ops.mul),
+        .div    => try vm.binaryOp(ops.div),
+        .idiv   => try vm.binaryOp(ops.idiv),
+        .pow    => try vm.binaryOp(ops.pow),
+        .mod    => try vm.binaryOp(ops.mod),
+        .concat => try vm.binaryOp(ops.concat),
 
         .bin_and => try vm.binaryOp(ops.bin_and),
         .bin_or  => try vm.binaryOp(ops.bin_or),
         .bin_xor => try vm.binaryOp(ops.bin_xor),
+        .shl     => try vm.binaryOp(ops.shl),
+        .shr     => try vm.binaryOp(ops.shr),
 
         .bool_and => try vm.compOp(ops.bool_and, true),
         .bool_or  => try vm.compOp(ops.bool_and, false),
@@ -52,27 +51,31 @@ pub fn exec(instr:ByteCode,vm: *Vm) !void {
         },
 
         .call => {
-            const x = vm.pop(); 
-            if (x.tag() != .func) {
-                Err.global = .{.unaryTypeErr = .{
-                    .op = .call,
-                    .ty = x.tag(),
-                }};
+            const x = vm.pop();
+            switch (x.tag()) {
+                .func => {
+                    const func = x.as(*Func);
 
-                return error.panic;
-            }
+                    vm.call_stack.append(.{
+                        .ip = vm.program.ip,
+                        .bp = vm.bp,
+                        .upval_ctx = vm.upval_ctx
+                    }) catch unreachable;
 
-            const func = x.as(*Func);
+                    vm.program.ip = func.ptr;
+                    vm.bp = vm.sp-func.arg_count-1;
+                    vm.upval_ctx = func.upvals;
+                },
 
-            vm.call_stack.append(.{
-                .ip = vm.program.ip,
-                .bp = vm.bp,
-                .upval_ctx = vm.upval_ctx
-            }) catch unreachable;
+                else => {
+                    Err.global = .{.unaryTypeErr = .{
+                        .op = .call,
+                        .ty = x.tag(),
+                    }};
 
-            vm.program.ip = func.ptr;
-            vm.bp = vm.sp-func.arg_count-1;
-            vm.upval_ctx = func.upvals;
+                    return error.panic;
+                }
+            } 
         },
 
         .ret => {

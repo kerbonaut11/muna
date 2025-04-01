@@ -13,6 +13,7 @@ pub const ByteCodeType = enum(u8) {
 
     load  = 7,
     write = 8,
+    pop   = 42,
 
     add    =  9,
     sub    = 10,
@@ -26,6 +27,8 @@ pub const ByteCodeType = enum(u8) {
     bin_and  = 31,
     bin_or   = 32,
     bin_xor  = 33,
+    shl  = 40,
+    shr  = 41,
 
     bool_and = 34,
     bool_or  = 35,
@@ -38,6 +41,14 @@ pub const ByteCodeType = enum(u8) {
     not      = 37,
     bool_not = 38,
     len      = 39,
+
+    new_table  = 42,
+    get        = 44,
+    get_pop    = 45,
+    set        = 46,
+    set_pop    = 47,
+    get_method = 46,
+
 
     closure = 17,
     call    = 18,
@@ -67,6 +78,7 @@ pub const ByteCode = union(ByteCodeType) {
 
     load:u16,
     write:u16,
+    pop:void,
 
     add:void,
     sub:void,
@@ -80,6 +92,8 @@ pub const ByteCode = union(ByteCodeType) {
     bin_and:void,
     bin_or:void,
     bin_xor:void,
+    shl:void,
+    shr:void,
 
     bool_and:void,
     bool_or:void,  
@@ -92,6 +106,13 @@ pub const ByteCode = union(ByteCodeType) {
     not:void,      
     bool_not:void, 
     len:void,      
+
+    new_tabel: u16,
+    get:void,
+    get_pop:void,
+    set:void,
+    set_pop:void,
+    get_method:u16,
 
     closure: packed struct {
         upval_cap:u8,

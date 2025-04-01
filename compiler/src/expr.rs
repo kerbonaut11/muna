@@ -64,7 +64,11 @@ pub enum TableLiteralIdx {
     StrLiteral(Box<str>), 
 }
 
-pub type TableLiteral = Vec<(TableLiteralIdx,Expr)>;
+#[derive(Clone)]
+pub struct TableLiteral {
+    pub arr:Vec<Expr>,
+    pub map:Vec<(TableLiteralIdx,Expr)>,
+}
 
 #[derive(Clone)]
 pub struct InlineFunction {
@@ -92,7 +96,15 @@ impl Expr {
             Expr::StrLiteral(x) => print!("string({:?})\n",x),
             Expr::TableLiteral(t) => {
                 print!("table:\n");
-                for (k,v) in t {
+
+                for v in &t.arr {
+                    for _ in 0..depth+1 {
+                        print!("  ");
+                    }
+                    v.display_tree(depth+2);
+                }
+
+                for (k,v) in &t.map {
                     for _ in 0..depth+1 {
                         print!("  ");
                     }
@@ -293,52 +305,48 @@ fn parse_args(tokens:&[Token]) -> Result<Vec<Expr>> {
 }
 
 fn parse_table_literal(tokens:&[Token]) -> Result<TableLiteral> {
-    parse_table_literal_rec(tokens, &mut 0)
+    let mut table = TableLiteral{arr:vec![],map:vec![]};
+    parse_table_literal_rec(tokens, &mut table)?;
+    Ok(table)
 }
 
-fn parse_table_literal_rec(tokens:&[Token],idx:&mut i32) -> Result<TableLiteral> {
+fn parse_table_literal_rec(tokens:&[Token], table:&mut TableLiteral) -> Result<()> {
     if tokens.is_empty() {
-        return Ok(vec![]);
+        return Ok(());
     }
 
     if let Some(comma_idx) = Token::find_outside_of_brackets(tokens, &Token::Comma) {
-        let elem = parse_table_literal_element(&tokens[..comma_idx],idx)?;
-        let mut elems = parse_table_literal_rec(&tokens[comma_idx+1..],idx)?;
-        elems.insert(0, elem);
-        Ok(elems)
+        parse_table_literal_element(&tokens[..comma_idx],table)?;
+        parse_table_literal_rec(&tokens[comma_idx+1..],table)?;
     } else {
-        Ok(vec![parse_table_literal_element(&tokens[..],idx)?])
+        parse_table_literal_element(tokens, table)?;
     }
+
+    Ok(())
 }
 
-fn parse_table_literal_element(tokens:&[Token],idx:&mut i32) -> Result<(TableLiteralIdx,Expr)> {
+fn parse_table_literal_element(tokens:&[Token],table:&mut TableLiteral) -> Result<()> {
     let has_equal = if tokens.len() > 2 {
         tokens[1] == Token::Assing
     } else {
         false
     };
 
-    let index = if has_equal {
-        match &tokens[0] {
+    if has_equal {
+        let idx = match &tokens[0] {
             Token::BoolLiteral(x) => TableLiteralIdx::BoolLiteral(*x), 
             Token::IntLiteral(x)   => TableLiteralIdx::IntLiteral(*x), 
             Token::FloatLiteral(x) => TableLiteralIdx::FloatLiteral(*x), 
             Token::StrLiteral(x)|Token::Ident(x) => TableLiteralIdx::StrLiteral(x.clone()), 
             _ => panic!("invalid idx {:?}",tokens[0])
-        }
+        };
+        let val = Expr::parse(&tokens[2..])?;
+        table.map.push((idx,val));
     } else {
-        let temp = *idx;
-        *idx += 1;
-        TableLiteralIdx::IntLiteral(temp)
+        table.arr.push(Expr::parse(tokens)?);
     };
 
-    let val = if has_equal {
-        Expr::parse(&tokens[2..])
-    } else {
-        Expr::parse(&tokens[..])
-    }?;
-
-    Ok((index,val))
+    Ok(())
 }
 
 fn find_highest_order_op(tokens:&[Token]) -> Option<usize> {

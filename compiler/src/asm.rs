@@ -132,7 +132,8 @@ impl CompileCtx {
                     }
         
                     ByteCode::Load(x) | ByteCode::Write(x) | ByteCode::LoadStr(x) | 
-                    ByteCode::BindUpval(x) | ByteCode::GetUpval(x) | ByteCode::SetUpval(x) => {
+                    ByteCode::BindUpval(x) | ByteCode::GetUpval(x) | ByteCode::SetUpval(x) |
+                    ByteCode::GetMethod(x) | ByteCode::NewTable(x) => {
                         head[0] = (x & 0xFF)as u8;
                         head[1] = (x >> 8)as u8;
                         encoded_bc.push(transmute(head));

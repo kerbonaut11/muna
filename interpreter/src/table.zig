@@ -39,6 +39,12 @@ pub const Table = struct {
         };
     }
 
+    fn realloc_arr(self: *Self,new_cap:u32) void {
+        Vm.gpa.free(self.arr[0..self.arr_cap]);
+        self.arr = (Vm.gpa.alloc(Var, new_cap) catch unreachable).ptr;
+        self.arr_cap = new_cap;
+    }
+
     pub fn get(self:*Self,k:Var) !Var {
         if (k.tag() == .int) {
             const int = k.as(i32);
@@ -66,6 +72,15 @@ pub const Table = struct {
             if (int > 0 and int < self.arr_len) {
                 self.arr[@intCast(int)] = v;
                 return;
+            }
+
+            if (int == self.arr_len) {
+                if (self.arr_len == self.arr_cap) {
+                    self.realloc_arr(self.arr_cap*2);
+                }
+
+                self.arr[self.arr_len] = v;
+                self.arr_len += 1;
             }
         }
 
@@ -122,6 +137,7 @@ pub const Table = struct {
 };
 
 test {
+    std.debug.print("{}", .{@sizeOf(Table)});
     var t = Table.init(3);
     try t.set(Var.from(1), Var.from(20));
     try t.set(Var.FALSE, Var.from(10));

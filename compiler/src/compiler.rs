@@ -1,6 +1,6 @@
 use std::{collections::HashMap, num::NonZeroU32, sync::Mutex};
 
-use crate::{asm::{ByteCodeVec, CompileCtx, LabelId}, ast_gen::{Assing, AstNode, Block, Declaration, ForStatement, Function, IfElseStatement, WhileStatement}, bytecode::{ByteCode, ClosureArgs}, expr::{self, Expr, InlineFunction, Op, UnaryOp}};
+use crate::{asm::{ByteCodeVec, CompileCtx, LabelId}, ast_gen::{Assing, AstNode, Block, Declaration, ForStatement, Function, IfElseStatement, WhileStatement}, bytecode::{ByteCode, ClosureArgs}, expr::{self, Expr, InlineFunction, Op, TableLiteral, TableLiteralIdx, UnaryOp}};
 
 
 pub struct FuncCtx<'a> {
@@ -56,8 +56,12 @@ impl<'a> FuncCtx<'a> {
         }
     }
 
+    fn local_count(&mut self) -> usize {
+        self.locals.len() + self.args.len()
+    }
+
     fn add_local(&mut self,name:&str) {
-        let id = self.locals.len() + self.args.len();
+        let id = self.local_count();
         self.locals.push((name.into(),self.scope_depth));
     }
 
@@ -171,7 +175,14 @@ impl<'a> FuncCtx<'a> {
             }
 
             AstNode::Assing(Assing { lhs, rhs }) => {
-                for expr in rhs {
+                for (expr,lhs) in rhs.iter().zip(lhs) {
+                    match lhs {
+                        Expr::Index { table, idx } => {
+                            table.compile(self, comp_ctx, bytecode);
+                            idx.compile(self, comp_ctx, bytecode);
+                        },
+                        _ => {},
+                    }
                     expr.compile(self,comp_ctx,bytecode);
                 }
 
@@ -184,6 +195,11 @@ impl<'a> FuncCtx<'a> {
                                 VarKind::Upval(id) => bytecode.add_instr(ByteCode::SetUpval(id)),
                             }
                         }
+                        
+                        Expr::Index {..} => {
+                            bytecode.add_instr(ByteCode::SetPop);
+                        },
+
                         _ => unreachable!(),
                     }
                 }
@@ -308,6 +324,16 @@ impl Expr {
                 });
             }
 
+            Expr::Unary { op, val } => {
+                val.compile(ctx,comp_ctx,bytecode);
+                bytecode.add_instr(match op {
+                    UnaryOp::Neg => ByteCode::Neg,
+                    UnaryOp::Not => ByteCode::Not,
+                    UnaryOp::BoolNot => ByteCode::BoolNot,
+                    UnaryOp::Len => ByteCode::Len,
+                });
+            }
+
             Expr::Call { function, args } => {
                 bytecode.add_instr(ByteCode::LoadNil);
                 for arg in args {
@@ -317,6 +343,46 @@ impl Expr {
                 function.compile(ctx, comp_ctx, bytecode);
                 
                 bytecode.add_instr(ByteCode::Call);
+            }
+
+            Expr::MethodCall { table, name, args } => {
+
+                bytecode.add_instr(ByteCode::LoadNil);
+                table.compile(ctx, comp_ctx, bytecode);
+                for arg in args {
+                    arg.compile(ctx, comp_ctx, bytecode);
+                }
+
+                bytecode.add_instr(ByteCode::Load(ctx.local_count() as u16 + 2));
+                bytecode.add_instr(ByteCode::GetMethod(comp_ctx.get_idx_of_name(&name)));
+                bytecode.add_instr(ByteCode::Call);
+            }
+
+            Expr::Index { table, idx } => {
+                table.compile(ctx, comp_ctx, bytecode);
+                idx.compile(ctx, comp_ctx, bytecode);
+                bytecode.add_instr(ByteCode::GetPop);
+            }
+
+            Expr::TableLiteral(table) => {
+                bytecode.add_instr(ByteCode::NewTable(table.arr.len() as u16));
+
+                for (i,expr) in table.arr.iter().enumerate() {
+                    bytecode.add_instr(ByteCode::LoadInt(i as i32));
+                    expr.compile(ctx, comp_ctx, bytecode);
+                    bytecode.add_instr(ByteCode::Set);
+                }
+
+                for (k,v) in &table.map {
+                    bytecode.add_instr(match k {
+                        TableLiteralIdx::BoolLiteral(x) => if *x {ByteCode::LoadTrue} else {ByteCode::LoadFalse},
+                        TableLiteralIdx::IntLiteral(x) => ByteCode::LoadInt(*x),
+                        TableLiteralIdx::FloatLiteral(x) => ByteCode::LoadFloat(*x),
+                        TableLiteralIdx::StrLiteral(x) => ByteCode::LoadStr(comp_ctx.get_idx_of_name(x)),
+                    });
+                    v.compile(ctx, comp_ctx, bytecode);
+                    bytecode.add_instr(ByteCode::Set);
+                }
             }
 
             Expr::Function(InlineFunction { args, block }) => {
@@ -340,9 +406,6 @@ impl Expr {
                     bytecode.add_instr(ByteCode::BindUpval(i as u16));
                 }
             }
-
-
-            _ => todo!()
         }
     }
 }
