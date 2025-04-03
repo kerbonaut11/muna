@@ -97,8 +97,9 @@ pub fn if_else_test_file() {
 pub fn table_test_file() {
     compile_to_file("
         local x = {};
-        local y = {1,1.0,{},x=10};
+        local y = {1,3.14,{},x=10};
         x.x,y[2] = 10,x;
+        y[0] = #y;
     ","../tests/table.lout");
 }
 

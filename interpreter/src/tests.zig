@@ -3,6 +3,8 @@ const Vm = @import("vm.zig").Vm;
 const Program = @import("bytecode.zig").Program;
 const Str = @import("str.zig").Str;
 const ByteCode = @import("bytecode.zig").ByteCode;
+const Table = @import("table.zig").Table;
+const Var = @import("var.zig").Var;
 
 test "compat" {
     const p = try Program.init("tests/compat.lout");
@@ -45,6 +47,25 @@ test "while" {
     defer vm.deinit();
     try vm.execUntilHaltDebug();
     try std.testing.expectEqual(10,vm.pop().as(i32));
+}
+
+test "tables get set" {
+    const p = try Program.init("tests/table.lout");
+    var vm = Vm.init(p);
+    defer vm.deinit();
+    try vm.execUntilHaltDebug();
+
+    try std.testing.expectEqual(.table, vm.top().tag());
+    const y = vm.pop().as(*Table);
+
+    try std.testing.expectEqual(.table, vm.top().tag());
+    const x =  vm.pop().as(*Table);
+
+    try std.testing.expectEqual(x, (try y.get(Var.from(2))).?.as(*Table));
+    try std.testing.expectApproxEqRel(3.14, (try y.get(Var.from(1))).?.as(f32), 0.01);
+    try std.testing.expectEqual(3, (try y.get(Var.from(0))).?.as(i32));
+
+    try std.testing.expectEqual(10, (try y.get(Var.from(Str.init("x")))).?.as(i32));
 }
 
 //test "layout" {

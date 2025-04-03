@@ -22,7 +22,7 @@ pub const Err = union(ErrType) {
         op:enum {
             add,sub,div,idiv,mul,pow,mod,concat,
             bin_and,bin_or,bin_xor,shl,shr,
-            compare
+            compare,idx
         },
         rhs:Var.Type,
         lhs:Var.Type,

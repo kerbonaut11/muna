@@ -13,7 +13,7 @@ pub const ByteCodeType = enum(u8) {
 
     load  = 7,
     write = 8,
-    pop   = 42,
+    pop   = 43,
 
     add    =  9,
     sub    = 10,
@@ -38,16 +38,15 @@ pub const ByteCodeType = enum(u8) {
     eq      = 28,
 
     neg      = 36,
-    not      = 37,
+    bin_not  = 37,
     bool_not = 38,
     len      = 39,
 
     new_table  = 42,
     get        = 44,
-    get_pop    = 45,
     set        = 46,
     set_pop    = 47,
-    get_method = 46,
+    get_method = 48,
 
 
     closure = 17,
@@ -103,13 +102,12 @@ pub const ByteCode = union(ByteCodeType) {
     eq:bool,
 
     neg:void,      
-    not:void,      
+    bin_not:void,      
     bool_not:void, 
     len:void,      
 
-    new_tabel: u16,
+    new_table: u16,
     get:void,
-    get_pop:void,
     set:void,
     set_pop:void,
     get_method:u16,
@@ -145,7 +143,6 @@ pub const ByteCode = union(ByteCodeType) {
 
 pub const Program = struct {
     const Self = @This();
-    const max_names = std.math.maxInt(u16);
 
     list:std.ArrayList(u32),
     ip:[*]u32,
@@ -168,7 +165,7 @@ pub const Program = struct {
 
     pub fn loadNameTable(reader:anytype) []Var {
         const name_count = reader.readInt(u16, .little)  catch unreachable;
-        var name_table = Vm.page_a.alloc(Var, max_names) catch unreachable;
+        var name_table = Vm.page_a.alloc(Var, name_count) catch unreachable;
         var buffer:[std.math.maxInt(u16)]u8 = undefined;
 
         for (0..name_count) |i| {
@@ -194,6 +191,9 @@ pub const Program = struct {
 
     pub fn deinit(self:*Self) void {
         self.list.deinit();
+        for (self.name_table) |str| {
+            str.as(Str).deinit();
+        }
         Vm.page_a.free(self.name_table);
     }
 

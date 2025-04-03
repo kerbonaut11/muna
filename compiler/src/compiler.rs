@@ -361,7 +361,7 @@ impl Expr {
             Expr::Index { table, idx } => {
                 table.compile(ctx, comp_ctx, bytecode);
                 idx.compile(ctx, comp_ctx, bytecode);
-                bytecode.add_instr(ByteCode::GetPop);
+                bytecode.add_instr(ByteCode::Get);
             }
 
             Expr::TableLiteral(table) => {

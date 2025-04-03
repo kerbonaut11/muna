@@ -21,9 +21,9 @@ pub const Var = struct {
 
     bits: u64,
 
-    pub const NIL = fromTypeAndHigh(.nil, 0);
-    pub const TRUE = from(true);
-    pub const FALSE = from(false);
+    pub const nil_val = fromTypeAndHigh(.nil, 0);
+    pub const true_val = from(true);
+    pub const false_val = from(false);
 
     fn fromTypeAndHigh(ty: Type, high: u32) Self {
         return Self{ .bits = (@as(u64, high) << 32) | @intFromEnum(ty) };
@@ -51,7 +51,7 @@ pub const Var = struct {
             f32, comptime_float => fromTypeAndHigh(.float, @bitCast(@as(f32, x))),
             Str    => fromTypeAndPtr(.str,   @ptrCast(x.ptr)),
             *Func  => fromTypeAndPtr(.func,  @ptrCast(x)),
-            *Table => fromTypeAndPtr(.float, @ptrCast(x)),
+            *Table => fromTypeAndPtr(.table, @ptrCast(x)),
             else => unreachable,
         };
     }
@@ -80,8 +80,17 @@ pub const Var = struct {
         return @enumFromInt(self.bits & 0x7);
     }
 
-    pub fn hash_eq(a:Self,b:Self) bool {
-        return a.bits == b.bits;
+    pub fn printDebug(self: Self) void {
+        switch (self.tag()) {
+            .nil => std.debug.print("nil", .{}),
+            .bool => std.debug.print("{}", .{self.as(bool)}),
+            .int => std.debug.print("{d}", .{self.as(i32)}),
+            .float => std.debug.print("{d}", .{self.as(f32)}),
+            .str => std.debug.print("'{s}'", .{self.as(Str).asSlice()}),
+            .func => std.debug.print("func@{x}", .{@intFromPtr(self.as(*Func).ptr)}),
+            .table => self.as(*Table).printDebug(),
+            else => {}
+        }
     }
 };
 

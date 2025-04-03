@@ -6,13 +6,14 @@ const Str = @import("str.zig").Str;
 const ops = @import("ops.zig");
 const Err = @import("err.zig").Err;
 const Func = @import("func.zig").Func;
+const Table = @import("table.zig").Table;
 
 
 pub fn exec(instr:ByteCode,vm: *Vm) !void {
     switch (instr) {
-        .load_nil   => vm.push(Var.NIL),
-        .load_true  => vm.push(Var.TRUE),
-        .load_false => vm.push(Var.FALSE),
+        .load_nil   => vm.push(Var.nil_val),
+        .load_true  => vm.push(Var.true_val),
+        .load_false => vm.push(Var.false_val),
         .load_int   => vm.push(Var.from(vm.program.next(i32))),
         .load_float => vm.push(Var.from(vm.program.next(f32))),
         .load_str => |i| vm.push(vm.program.name_table[i]),
@@ -29,18 +30,59 @@ pub fn exec(instr:ByteCode,vm: *Vm) !void {
         .mod    => try vm.binaryOp(ops.mod),
         .concat => try vm.binaryOp(ops.concat),
 
-        .bin_and => try vm.binaryOp(ops.bin_and),
-        .bin_or  => try vm.binaryOp(ops.bin_or),
-        .bin_xor => try vm.binaryOp(ops.bin_xor),
+        .bin_and => try vm.binaryOp(ops.binAnd),
+        .bin_or  => try vm.binaryOp(ops.binOr),
+        .bin_xor => try vm.binaryOp(ops.binXor),
         .shl     => try vm.binaryOp(ops.shl),
         .shr     => try vm.binaryOp(ops.shr),
 
-        .bool_and => try vm.compOp(ops.bool_and, true),
-        .bool_or  => try vm.compOp(ops.bool_and, false),
+        .bool_and => try vm.compOp(ops.boolAnd, true),
+        .bool_or  => try vm.compOp(ops.boolOr, true),
 
         .eq      => |expected| try vm.compOp(ops.eq, expected),
         .less    => |expected| try vm.compOp(ops.less, expected),
-        .less_eq => |expected| try vm.compOp(ops.less_eq, expected),
+        .less_eq => |expected| try vm.compOp(ops.lessEq, expected),
+
+        .neg      => try vm.unaryOp(ops.neg),
+        .bin_not  => try vm.unaryOp(ops.binNot),
+        .bool_not => vm.top().* = Var.from(try ops.boolNot(vm.top().*)),
+        .len      => try vm.unaryOp(ops.len),
+
+        .new_table => |cap| vm.push(Var.from(Table.init(cap))),
+        .get => try vm.binaryOp(ops.get),
+        .set => {
+            const v = vm.pop();
+            const k = vm.pop();
+            const t = vm.top().*;
+            switch (t.tag()) {
+                .table => try t.as(*Table).set(k,v),
+                else => {
+                    Err.global = Err{.opTypeErr = .{
+                        .op = .idx,
+                        .lhs = t.tag(),
+                        .rhs = .nil
+                    }};
+                    return error.panic;
+                },
+            }
+        },
+
+        .set_pop => {
+            const v = vm.pop();
+            const k = vm.pop();
+            const t = vm.pop();
+            switch (t.tag()) {
+                .table => try t.as(*Table).set(k,v),
+                else => {
+                    Err.global = Err{.opTypeErr = .{
+                        .op = .idx,
+                        .lhs = t.tag(),
+                        .rhs = .nil
+                    }};
+                    return error.panic;
+                },
+            }
+        },
 
         .closure => |arg| {
             const offset = vm.program.next(u32);

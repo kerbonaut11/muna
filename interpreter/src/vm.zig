@@ -52,7 +52,7 @@ pub const Vm = struct {
             .call_stack = std.ArrayList(CallStackEntry).init(Vm.gpa)
         };
 
-        self.push(Var.NIL);
+        self.push(Var.nil_val);
         return self;
     }
 
@@ -124,15 +124,8 @@ pub const Vm = struct {
 
     pub fn printLocals(self:*Self) void {
         for (self.localSlice()) |local| {
-            switch (local.tag()) {
-                .nil => std.debug.print("nil\n", .{}),
-                .bool => std.debug.print("bool:{}\n", .{local.as(bool)}),
-                .int => std.debug.print("int:{d}\n", .{local.as(i32)}),
-                .float => std.debug.print("float:{d}\n", .{local.as(f32)}),
-                .str => std.debug.print("str:{s}\n", .{local.as(Str).asSlice()}),
-                .func => std.debug.print("func@{x}\n", .{@intFromPtr(local.as(*Func).ptr)}),
-                else => {}
-            }
+            local.printDebug();
+            std.debug.print("\n", .{});
         }
     }
 

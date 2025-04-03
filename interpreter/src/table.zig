@@ -6,46 +6,91 @@ const Err = @import("err.zig").Err;
 
 pub const Table = struct {
     const Self = @This();
-    const KV = struct{v:Var,k:Var};
-    const map_start_size = 4; 
+    const Map = std.hash_map.HashMapUnmanaged(Var, Var, struct {
+        pub fn eql(_:@This(),lhs:Var,rhs:Var) bool {
+            return Table.hashEq(lhs, rhs);
+        }
+
+        pub fn hash(_:@This(),k:Var) u32 {
+            return Table.hash(k);
+        }
+    }, 80);
+
+    const mt_mask = ~@as(usize, 1); 
 
     arr:[*]Var,
     arr_cap:u32,
     arr_len:u32,
 
-    map:[*]std.SinglyLinkedList(KV),
-    map_len:u16,
-    map_mask:u8,
-    map_inserts_till_realloc:u8,
+    map:Map,
+    meta_table_bits:usize,
 
-    marked:bool,
-
-    pub fn init(arr_cap:u32) Self {
+    pub fn init(arr_cap:u32) *Self {
+        var self = Vm.gpa.create(Self) catch unreachable;
         const arr_slice = Vm.gpa.alloc(Var, arr_cap) catch unreachable;
-        const map_slice = Vm.gpa.alloc(std.SinglyLinkedList(KV), map_start_size)  catch unreachable;
-        @memset(map_slice, std.SinglyLinkedList(KV){.first = null});
 
-        return Self{
-            .arr = arr_slice.ptr,
-            .arr_cap = arr_cap,
-            .arr_len = 0,
+        self.arr = arr_slice.ptr;
+        self.arr_cap = arr_cap;
+        self.arr_len = 0;
 
-            .map = map_slice.ptr,
-            .map_len = map_start_size,
-            .map_mask = 0b11,
-            .map_inserts_till_realloc = map_start_size*3,
+        self.map = Map.empty;
+        self.meta_table_bits = 0;
 
-            .marked = false,
-        };
+        return self;
     }
 
-    fn realloc_arr(self: *Self,new_cap:u32) void {
-        Vm.gpa.free(self.arr[0..self.arr_cap]);
+    pub fn deinit(self: *Self) void {
+        Vm.gpa.free(self.arrSlice());
+        self.map.deinit(Vm.gpa);
+        Vm.deinit(self);
+    }
+
+    pub fn getMetaTable(self: *Self) ?*Self {
+        return @ptrFromInt(self.meta_table_bits & mt_mask);
+    }
+
+    pub fn setMetaTable(self: *Self,mt: ?*Self) void {
+        self.meta_table_bits &= 1;
+        self.meta_table_bits |= @intFromPtr(mt);
+    }
+
+    fn reallocArr(self: *Self,new_cap:u32) void {
+        Vm.gpa.free(self.arrSlice());
         self.arr = (Vm.gpa.alloc(Var, new_cap) catch unreachable).ptr;
         self.arr_cap = new_cap;
     }
 
-    pub fn get(self:*Self,k:Var) !Var {
+    pub fn arrSlice(self: *Self) []Var {
+        return self.arr[0..self.arr_cap];
+    }
+
+    fn validateKey(k:Var) !Var {
+        return switch (k.tag()) {
+            .nil => {
+                Err.global = Err{.invalidIdx = k};
+                return error.panic;
+            },
+
+            .float => {
+                const float = k.as(f32);
+                if (float == std.math.nan(f32)) {
+                    Err.global = Err{.invalidIdx = k};
+                    return error.panic;
+                }
+
+                if (@rem(float, 1.0) == 0.0) {
+                    return Var.from(@as(i32,@intFromFloat(float)));
+                }
+
+                return k;
+            },
+            else => k,
+        };
+    }
+
+    pub fn get(self:*Self,_k:Var) !?Var {
+        const k = try validateKey(_k);
+
         if (k.tag() == .int) {
             const int = k.as(i32);
             if (int > 0 and int < self.arr_len) {
@@ -53,20 +98,20 @@ pub const Table = struct {
             }
         }
 
-        const idx = try hash(k) & self.map_mask;
-        var node = self.map[idx].first;
-        while (node != null) {
-            const data = node.?.data;
-            if (data.k.hash_eq(k)) {
-                return data.v;
-            }
-            node = node.?.next;
+        if (self.map.get(k)) |x| {
+            return x;
         }
 
-        return Var.NIL;
+        if (self.getMetaTable()) |mt| {
+            return mt.get(k);
+        }
+
+        return null;
     }
 
-    pub fn set(self:*Self,k:Var,v:Var) !void {
+    pub fn set(self:*Self,_k:Var,v:Var) !void {
+        const k = try validateKey(_k);
+
         if (k.tag() == .int) {
             const int = k.as(i32);
             if (int > 0 and int < self.arr_len) {
@@ -76,7 +121,7 @@ pub const Table = struct {
 
             if (int == self.arr_len) {
                 if (self.arr_len == self.arr_cap) {
-                    self.realloc_arr(self.arr_cap*2);
+                    self.reallocArr(self.arr_cap*2);
                 }
 
                 self.arr[self.arr_len] = v;
@@ -84,45 +129,16 @@ pub const Table = struct {
             }
         }
 
-        const idx = try hash(k) & self.map_mask;
-        var prev = self.map[idx].first;
-        var node = self.map[idx].first;
-        while (node != null) {
-            const data = node.?.data;
-            if (data.k.hash_eq(k)) {
-                node.?.data.v = v;
-                return;
-            }
-            prev = node;
-            node = node.?.next;
-        }
-
-        var new = Vm.gpa.create(std.SinglyLinkedList(KV).Node) catch unreachable;
-        new.data = .{.k = k,.v = v};
-        new.next = null;
-        if (prev != null) {
-            prev.?.next = new;
-        } else {
-            self.map[idx].first = new;
-        }
+        self.map.put(Vm.gpa, k, v) catch unreachable;
     }
 
-    pub fn hash(k:Var) !u32 {
+    pub fn hash(k:Var) u32 {
         const bool_hash:u32 = 0xaaaaaaaa; 
         switch (k.tag()) {
-            .nil  => {
-                Err.global = Err{.invalidIdx = k};
-                return error.run;
-            },
             .bool => return if (k.as(bool)) bool_hash else ~bool_hash,
             .int => return @bitCast(k.as(i32)),
             .float => {
                 const float = k.as(f32);
-                if (float == std.math.nan(f32)) {
-                    Err.global = Err{.invalidIdx = k};
-                    return error.run;
-                }
-
                 if (@mod(float, 1.0) == 0.0) {
                     return @bitCast(k.floatToInt());
                 } else {
@@ -134,14 +150,45 @@ pub const Table = struct {
             else => unreachable,
         }
     }
+
+    pub fn hashEq(lhs:Var,rhs:Var) bool {
+        if (lhs.bits == rhs.bits) {
+            return true;
+        }
+
+        if (lhs.tag() == .str and rhs.tag() == .str) {
+            return std.mem.eql(u8,lhs.as(Str).asSlice(), rhs.as(Str).asSlice());
+        }
+
+        return false;
+    }
+
+    pub fn printDebug(self: *Self) void {
+        std.debug.print("{s}", .{"{"});
+
+        for (self.arrSlice()) |x| {
+            x.printDebug();
+            std.debug.print(", ", .{});
+        }
+        
+        var iter = self.map.iterator();
+        while (iter.next()) |e|{
+            e.key_ptr.printDebug();
+            std.debug.print("=", .{});
+            e.value_ptr.printDebug();
+            std.debug.print(", ", .{});
+        }
+
+        std.debug.print("{s}", .{"}"});
+    }
 };
 
 test {
-    std.debug.print("{}", .{@sizeOf(Table)});
+    std.debug.print("{}\n", .{@sizeOf(Table)});
     var t = Table.init(3);
     try t.set(Var.from(1), Var.from(20));
-    try t.set(Var.FALSE, Var.from(10));
+    try t.set(Var.false_val, Var.from(10));
 
-    try std.testing.expectEqual(Var.from(20),try t.get(Var.from(1)));
-    try std.testing.expectEqual(Var.from(10),try t.get(Var.FALSE));
+    try std.testing.expectEqual(Var.from(20),t.get(Var.from(1)));
+    try std.testing.expectEqual(Var.from(10),t.get(Var.false_val));
 }

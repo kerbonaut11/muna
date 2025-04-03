@@ -3,6 +3,7 @@ const Var = @import("var.zig").Var;
 const Vm = @import("vm.zig").Vm;
 const Err = @import("err.zig").Err;
 const Str = @import("str.zig").Str;
+const Table = @import("table.zig").Table;
 
 fn tycomb(a:Var.Type,b:Var.Type) u8 {
     return (@as(u8,@intFromEnum(a)) << 4) | @as(u8,@intFromEnum(b));
@@ -78,7 +79,7 @@ pub fn div(lhs:Var,rhs:Var) !Var {
 
 pub fn idiv(lhs:Var,rhs:Var) !Var {
     return switch (tycomb(lhs.tag(), rhs.tag())) {
-        tycomb(.int, .int) => Var.from(lhs.as(i32) / rhs.as(i32)),
+        tycomb(.int, .int) => Var.from(@divFloor(lhs.as(i32), rhs.as(i32))),
         else => {
             Err.global = Err{.opTypeErr = .{
                 .op = .idiv,
@@ -148,7 +149,7 @@ pub fn toStr(x:Var) !Str {
 }
 
 
-pub fn bin_and(lhs:Var,rhs:Var) !Var {
+pub fn binAnd(lhs:Var,rhs:Var) !Var {
     return switch (tycomb(lhs.tag(), rhs.tag())) {
         tycomb(.int, .int) => Var.from(lhs.as(i32) & rhs.as(i32)),
         else => {
@@ -162,7 +163,7 @@ pub fn bin_and(lhs:Var,rhs:Var) !Var {
     };
 }
 
-pub fn bin_or(lhs:Var,rhs:Var) !Var {
+pub fn binOr(lhs:Var,rhs:Var) !Var {
     return switch (tycomb(lhs.tag(), rhs.tag())) {
         tycomb(.int, .int) => Var.from(lhs.as(i32) | rhs.as(i32)),
         else => {
@@ -176,7 +177,7 @@ pub fn bin_or(lhs:Var,rhs:Var) !Var {
     };
 }
 
-pub fn bin_xor(lhs:Var,rhs:Var) !Var {
+pub fn binXor(lhs:Var,rhs:Var) !Var {
     return switch (tycomb(lhs.tag(), rhs.tag())) {
         tycomb(.int, .int) => Var.from(lhs.as(i32) ^ rhs.as(i32)),
         else => {
@@ -192,7 +193,7 @@ pub fn bin_xor(lhs:Var,rhs:Var) !Var {
 
 pub fn shl(lhs:Var,rhs:Var) !Var {
     return switch (tycomb(lhs.tag(), rhs.tag())) {
-        tycomb(.int, .int) => Var.from(lhs.as(i32) << rhs.as(i32)),
+        tycomb(.int, .int) => Var.from(lhs.as(i32) << @as(u5,@intCast(rhs.as(i32)))),
         else => {
             Err.global = Err{.opTypeErr = .{
                 .op = .shl,
@@ -207,7 +208,7 @@ pub fn shl(lhs:Var,rhs:Var) !Var {
 
 pub fn shr(lhs:Var,rhs:Var) !Var {
     return switch (tycomb(lhs.tag(), rhs.tag())) {
-        tycomb(.int, .int) => Var.from(lhs.as(i32) >> rhs.as(i32)),
+        tycomb(.int, .int) => Var.from(lhs.as(i32) >> @as(u5,@intCast(rhs.as(i32)))),
         else => {
             Err.global = Err{.opTypeErr = .{
                 .op = .shr,
@@ -219,11 +220,11 @@ pub fn shr(lhs:Var,rhs:Var) !Var {
     };
 }
 
-pub fn bool_and(lhs:Var,rhs:Var) !bool {
+pub fn boolAnd(lhs:Var,rhs:Var) !bool {
     return try truthy(lhs) and try truthy(rhs);
 }
 
-pub fn bool_or(lhs:Var,rhs:Var) !bool {
+pub fn boolOr(lhs:Var,rhs:Var) !bool {
     return try truthy(lhs) or try truthy(rhs);
 }
 
@@ -259,7 +260,7 @@ pub fn less(lhs:Var,rhs:Var) !bool {
     };
 }
 
-pub fn less_eq(lhs:Var,rhs:Var) !bool {
+pub fn lessEq(lhs:Var,rhs:Var) !bool {
     return switch (tycomb(lhs.tag(), rhs.tag())) {
         tycomb(.int, .int)     => lhs.as(i32)      <= rhs.as(i32),
         tycomb(.int, .float)   => lhs.intToFloat() <= rhs.as(f32),
@@ -268,6 +269,27 @@ pub fn less_eq(lhs:Var,rhs:Var) !bool {
         else => {
             Err.global = Err{.opTypeErr = .{
                 .op = .compare,
+                .lhs = lhs.tag(),
+                .rhs = rhs.tag()
+            }};
+            return error.panic;
+        },
+    };
+}
+
+
+pub fn get(lhs:Var,rhs:Var) !Var {
+    return switch (lhs.tag()) {
+        .table => {
+            if (try lhs.as(*Table).get(rhs)) |x| {
+                return x;
+            } else {
+                return Var.nil_val;
+            }
+        },
+        else => {
+            Err.global = Err{.opTypeErr = .{
+                .op = .idx,
                 .lhs = lhs.tag(),
                 .rhs = rhs.tag()
             }};
@@ -300,9 +322,9 @@ pub fn neg(x:Var) !Var {
     };
 }
 
-pub fn bin_not(x:Var) !Var {
+pub fn binNot(x:Var) !Var {
     return switch (x.tag()) {
-        .int => Var.from(!x.as(i32)),
+        .int => Var.from(~x.as(i32)),
         else => {
             Err.global = Err{.unaryTypeErr = .{
                 .op = .bin_not,
@@ -313,10 +335,15 @@ pub fn bin_not(x:Var) !Var {
     };
 }
 
+pub fn boolNot(x:Var) !bool {
+    return !try truthy(x);
+}
+
+
 pub fn len(x:Var) !Var {
     return switch (x.tag()) {
         .str   => Var.from(x.as(Str).getLen()),
-        .table => error.todo,
+        .table => Var.from(@as(i32,@intCast(x.as(*Table).arrSlice().len))),
         else => {
             Err.global = Err{.unaryTypeErr = .{
                 .op = .len,
