@@ -45,7 +45,7 @@ pub const Table = struct {
         Vm.deinit(self);
     }
 
-    pub fn getMetaTable(self: *Self) ?*Self {
+    pub fn getMetaTable(self: *const Self) ?*Self {
         return @ptrFromInt(self.meta_table_bits & mt_mask);
     }
 
@@ -88,9 +88,12 @@ pub const Table = struct {
         };
     }
 
-    pub fn get(self:*Self,_k:Var) !?Var {
+    pub fn get(self:*const Self,_k:Var) !?Var {
         const k = try validateKey(_k);
+        return self.getNoValidate(k);
+    }
 
+    pub fn getNoValidate(self:*const Self,k:Var) ?Var {
         if (k.tag() == .int) {
             const int = k.as(i32);
             if (int > 0 and int < self.arr_len) {
@@ -103,7 +106,7 @@ pub const Table = struct {
         }
 
         if (self.getMetaTable()) |mt| {
-            return mt.get(k);
+            return mt.getNoValidate(k);
         }
 
         return null;
@@ -111,25 +114,31 @@ pub const Table = struct {
 
     pub fn set(self:*Self,_k:Var,v:Var) !void {
         const k = try validateKey(_k);
+        self.setNoValidate(k, v);
+    }
 
+    pub fn setNoValidate(self:*Self,k:Var,v:Var) void {
         if (k.tag() == .int) {
             const int = k.as(i32);
             if (int > 0 and int < self.arr_len) {
                 self.arr[@intCast(int)] = v;
                 return;
             }
-
-            if (int == self.arr_len) {
-                if (self.arr_len == self.arr_cap) {
-                    self.reallocArr(self.arr_cap*2);
-                }
-
-                self.arr[self.arr_len] = v;
-                self.arr_len += 1;
-            }
         }
 
         self.map.put(Vm.gpa, k, v) catch unreachable;
+    }
+
+    pub fn push(self:*Self, x:Var) void {
+        if (self.arr_len == self.arr_cap) {
+            self.reallocArr(self.arr_cap*2);
+        }
+        self.pushUnsafe(x);
+    }
+
+    pub fn pushUnsafe(self:*Self, x:Var) void {
+        self.arr[self.arr_len] = x;
+        self.arr_len += 1;
     }
 
     pub fn hash(k:Var) u32 {

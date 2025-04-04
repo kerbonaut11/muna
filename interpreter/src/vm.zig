@@ -4,6 +4,7 @@ const ByteCode = @import("bytecode.zig").ByteCode;
 const Program = @import("bytecode.zig").Program;
 const Str = @import("str.zig").Str;
 const Func = @import("func.zig").Func;
+const CallStack = Func.CallStack;
 const ReturnCode = @import("err.zig").ReturnCode;
 const exec_fn = @import("exec.zig").exec;
 const Err = @import("err.zig").Err;
@@ -24,13 +25,7 @@ pub const Vm = struct {
 
     program:Program,
 
-    call_stack:std.ArrayList(CallStackEntry),
-
-    pub const CallStackEntry = struct {
-        bp:[*]Var,
-        ip:[*]u32,
-        upval_ctx:[*]Var,
-    };
+    call_stack:CallStack,
 
     pub var nil_str:Str = undefined;
     pub var false_str:Str = undefined;
@@ -49,7 +44,7 @@ pub const Vm = struct {
             .bp = stack.ptr,
             .sp = stack.ptr,
             .upval_ctx = undefined,
-            .call_stack = std.ArrayList(CallStackEntry).init(Vm.gpa)
+            .call_stack = CallStack.init(Vm.gpa)
         };
 
         self.push(Var.nil_val);
@@ -146,4 +141,3 @@ pub const Vm = struct {
         self.top().* = Var.from(result == expected);
     }
 };
-

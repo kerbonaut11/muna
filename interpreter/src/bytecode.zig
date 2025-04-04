@@ -46,7 +46,8 @@ pub const ByteCodeType = enum(u8) {
     get        = 44,
     set        = 46,
     set_pop    = 47,
-    get_method = 48,
+    push       = 48,
+    get_method = 49,
 
 
     closure = 17,
@@ -110,6 +111,7 @@ pub const ByteCode = union(ByteCodeType) {
     get:void,
     set:void,
     set_pop:void,
+    push:void,
     get_method:u16,
 
     closure: packed struct {
@@ -117,7 +119,7 @@ pub const ByteCode = union(ByteCodeType) {
         arg_count:u8
     },
 
-    call:void,
+    call:u16,
     ret:void,
 
     bind_upval:u16,
@@ -145,7 +147,7 @@ pub const Program = struct {
     const Self = @This();
 
     list:std.ArrayList(u32),
-    ip:[*]u32,
+    ip:[*]const u32,
     name_table:[]Var,
 
     pub fn init(path:[]const u8) !Self {

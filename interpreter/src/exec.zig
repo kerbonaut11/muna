@@ -20,6 +20,7 @@ pub fn exec(instr:ByteCode,vm: *Vm) !void {
 
         .load  => |i| vm.push(vm.bp[i]),
         .write => |i| vm.bp[i] = vm.pop(),
+        .pop => _ = vm.pop(),
 
         .add    => try vm.binaryOp(ops.add),
         .sub    => try vm.binaryOp(ops.sub),
@@ -49,7 +50,29 @@ pub fn exec(instr:ByteCode,vm: *Vm) !void {
         .len      => try vm.unaryOp(ops.len),
 
         .new_table => |cap| vm.push(Var.from(Table.init(cap))),
+
         .get => try vm.binaryOp(ops.get),
+        .get_method => |i| {
+            const k = vm.program.name_table[i];
+            if (vm.top().tag() != .table) {
+                Err.global = Err{.unaryTypeErr = .{
+                    .op = .method,
+                    .ty = vm.top().tag(),
+                }};
+                return error.panic;
+            }
+
+            if (vm.top().as(*Table).getMetaTable()) |mt| {
+                if (mt.getNoValidate(k)) |m| {
+                    vm.push(m);
+                    return;
+                }
+            }
+
+            Err.global = Err{.methodNotFound = k.as(Str).asSlice()};
+            return error.panic;
+        },
+
         .set => {
             const v = vm.pop();
             const k = vm.pop();
@@ -66,7 +89,6 @@ pub fn exec(instr:ByteCode,vm: *Vm) !void {
                 },
             }
         },
-
         .set_pop => {
             const v = vm.pop();
             const k = vm.pop();
@@ -84,6 +106,11 @@ pub fn exec(instr:ByteCode,vm: *Vm) !void {
             }
         },
 
+        .push => {
+            const x = vm.pop();
+            vm.top().as(*Table).pushUnsafe(x);
+        },
+
         .closure => |arg| {
             const offset = vm.program.next(u32);
             std.debug.print("{}\n", .{offset});
@@ -92,23 +119,10 @@ pub fn exec(instr:ByteCode,vm: *Vm) !void {
             vm.push(Var.from(func));
         },
 
-        .call => {
+        .call => |arg_count| {
             const x = vm.pop();
             switch (x.tag()) {
-                .func => {
-                    const func = x.as(*Func);
-
-                    vm.call_stack.append(.{
-                        .ip = vm.program.ip,
-                        .bp = vm.bp,
-                        .upval_ctx = vm.upval_ctx
-                    }) catch unreachable;
-
-                    vm.program.ip = func.ptr;
-                    vm.bp = vm.sp-func.arg_count-1;
-                    vm.upval_ctx = func.upvals;
-                },
-
+                .func => try x.as(*Func).call(@intCast(arg_count),vm),
                 else => {
                     Err.global = .{.unaryTypeErr = .{
                         .op = .call,
@@ -120,16 +134,7 @@ pub fn exec(instr:ByteCode,vm: *Vm) !void {
             } 
         },
 
-        .ret => {
-            if (vm.call_stack.pop()) |e| {
-                vm.sp = vm.bp+1;
-                vm.bp = e.bp;
-                vm.program.ip = e.ip;
-                vm.upval_ctx = e.upval_ctx;
-            } else {
-                return error.halt;
-            }
-        },
+        .ret => try Func.ret(vm),
 
         .bind_upval => |i| {
             const x = vm.pop();
@@ -145,7 +150,7 @@ pub fn exec(instr:ByteCode,vm: *Vm) !void {
 
         .halt => return error.halt,
 
-        else => return error.todo,
+        //else => return error.todo,
     }
 }
 

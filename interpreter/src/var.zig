@@ -13,6 +13,18 @@ pub const VarType = enum(u3) {
     table,
     func,
     zig,
+
+    pub fn ofType(comptime T:type) VarType {
+        return switch (T) {
+            bool   => .bool, 
+            i32    => .int,  
+            f32    => .float,
+            Str    => .str,  
+            *Func  => .func,   
+            *Table => .table,
+            else => unreachable,
+        };
+    }
 };
 
 pub const Var = struct {
@@ -66,6 +78,10 @@ pub const Var = struct {
             *Table => @ptrCast(@alignCast(self.asPtr())),
             else => unreachable,
         };
+    }
+
+    pub fn tryAs(self: Self, comptime T: type) ?T {
+        return if (self.tag() == VarType.ofType(T)) self.as(T) else null;
     }
 
     pub fn intToFloat(self:Self) f32 {

@@ -342,7 +342,7 @@ impl Expr {
 
                 function.compile(ctx, comp_ctx, bytecode);
                 
-                bytecode.add_instr(ByteCode::Call);
+                bytecode.add_instr(ByteCode::Call(args.len() as u16));
             }
 
             Expr::MethodCall { table, name, args } => {
@@ -355,7 +355,7 @@ impl Expr {
 
                 bytecode.add_instr(ByteCode::Load(ctx.local_count() as u16 + 2));
                 bytecode.add_instr(ByteCode::GetMethod(comp_ctx.get_idx_of_name(&name)));
-                bytecode.add_instr(ByteCode::Call);
+                bytecode.add_instr(ByteCode::Call(args.len() as u16));
             }
 
             Expr::Index { table, idx } => {
@@ -367,10 +367,9 @@ impl Expr {
             Expr::TableLiteral(table) => {
                 bytecode.add_instr(ByteCode::NewTable(table.arr.len() as u16));
 
-                for (i,expr) in table.arr.iter().enumerate() {
-                    bytecode.add_instr(ByteCode::LoadInt(i as i32));
+                for expr in &table.arr {
                     expr.compile(ctx, comp_ctx, bytecode);
-                    bytecode.add_instr(ByteCode::Set);
+                    bytecode.add_instr(ByteCode::Push);
                 }
 
                 for (k,v) in &table.map {

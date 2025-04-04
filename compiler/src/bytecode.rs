@@ -46,11 +46,12 @@ pub enum ByteCode {
     Get = 44,
     Set = 46,
     SetPop = 47,
-    GetMethod(u16) = 48,
+    Push = 48,
+    GetMethod(u16) = 49,
 
     Closure(ClosureArgs) = 17,
-    Call    = 18,
-    Ret     = 19,
+    Call(u16) = 18,
+    Ret = 19,
 
     BindUpval(u16) = 20,
     GetUpval(u16)  = 21,
